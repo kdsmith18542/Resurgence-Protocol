@@ -1,0 +1,69 @@
+type User @entity(immutable: true) {
+  id: Bytes! # address
+  stakedBalance: BigInt!
+  totalResurgeEarned: BigInt!
+  rewardsClaimed: BigInt!
+  stakingEvents: [StakingEvent!] @derivedFrom(field: "user")
+  rewardClaimEvents: [RewardClaimEvent!] @derivedFrom(field: "user")
+}
+
+type StakingPool @entity(immutable: true) {
+  id: Bytes! # deadCoinToken address
+  deadCoinToken: Bytes!
+  resurgeToken: Bytes!
+  rewardRatePerSecond: BigInt!
+  lastUpdateTime: BigInt!
+  rewardPerTokenStored: BigInt!
+  totalStaked: BigInt!
+  stakingEvents: [StakingEvent!] @derivedFrom(field: "pool")
+}
+
+type StakingEvent @entity {
+  id: Bytes! # transaction hash + log index
+  user: User!
+  pool: StakingPool!
+  amount: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+  type: String! # "Stake" or "Unstake"
+}
+
+type RewardClaimEvent @entity {
+  id: Bytes! # transaction hash + log index
+  user: User!
+  amount: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type GovernanceProposal @entity {
+  id: Bytes! # proposal ID
+  proposer: Bytes!
+  targets: [Bytes!]!
+  values: [BigInt!]!
+  signatures: [String!]!
+  calldatas: [Bytes!]!
+  description: String!
+  votingDelay: BigInt!
+  votingPeriod: BigInt!
+  quorum: BigInt!
+  eta: BigInt # For timelock
+  startBlock: BigInt!
+  endBlock: BigInt!
+  forVotes: BigInt!
+  againstVotes: BigInt!
+  abstainVotes: BigInt!
+  executed: Boolean!
+  canceled: Boolean!
+  queued: Boolean!
+  receipts: [VoteReceipt!] @derivedFrom(field: "proposal")
+}
+
+type VoteReceipt @entity {
+  id: Bytes! # proposal ID + voter address
+  proposal: GovernanceProposal!
+  voter: Bytes!
+  support: BigInt! # 0=Against, 1=For, 2=Abstain
+  votes: BigInt!
+  reason: String!
+} 
