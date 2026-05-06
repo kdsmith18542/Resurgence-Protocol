@@ -16,9 +16,13 @@
     "size": "hardhat size-contracts",
     "clean": "hardhat clean"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kdsmith18542/Resurgence-Protocol.git"
+  },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
     "@nomicfoundation/hardhat-foundry": "^1.1.4",

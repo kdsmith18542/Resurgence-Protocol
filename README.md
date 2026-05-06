@@ -20,8 +20,8 @@ A smart contract project for decentralized staking and rewards.
 
 1. Clone the repository:
    ```bash
-   git clone https://gitlab.com/grywrm1337/resurgence-protocol.git
-   cd resurgence-protocol
+   git clone https://github.com/kdsmith18542/Resurgence-Protocol.git
+   cd Resurgence-Protocol
    ```
 
 2. Install dependencies:
@@ -48,4 +48,5 @@ npx hardhat test
 
 ## License
 
-ISC
+MIT
+
