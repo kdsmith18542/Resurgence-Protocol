@@ -12,8 +12,11 @@ import "@openzeppelin/contracts/governance/IGovernor.sol";
 import "@openzeppelin/contracts/governance/extensions/IGovernorTimelock.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./ResurgenceTimelockController.sol";
-import "./ResurgenceProtocol.sol"; // Updated import to match the new token contract name
+import "./ResurgeToken.sol";
 
+/// @title ResurgenceGovernance - Governance contract for the Resurgence Protocol
+/// @notice Implements on-chain governance using OpenZeppelin Governor components
+/// @dev Uses GovernorSettings, CountingSimple, Votes, QuorumFraction, and TimelockControl
 contract ResurgenceGovernance is 
     Governor,
     GovernorSettings,
@@ -22,58 +25,68 @@ contract ResurgenceGovernance is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
-    // Track the latest proposal ID
+    /// @dev Track the latest proposal ID
     uint256 private _latestProposalId;
+
+    /// @notice Initializes the governance contract
+    /// @param _resurgeToken The native RESURGE token address (IVotes compatible)
+    /// @param _timelock The TimelockController address
+    /// @param _votingDelay Number of blocks between proposal and voting start
+    /// @param _votingPeriod Duration of the voting period in blocks
+    /// @param _quorumPercentage Percentage of total supply needed for quorum (e.g. 4)
+    /// @param _proposalThreshold Number of votes needed to create a proposal
     constructor(
-        ResurgenceProtocol _resurgeToken,
+        ResurgeToken _resurgeToken,
         ResurgenceTimelockController _timelock,
         uint256 _votingDelay,
         uint256 _votingPeriod,
-        uint256 _quorumPercentage
+        uint256 _quorumPercentage,
+        uint256 _proposalThreshold
     )
         Governor("ResurgenceGovernor")
         GovernorSettings(
-            _votingDelay, /* 1 block */
-            _votingPeriod, /* 1 week */
-            0
+            _votingDelay,
+            _votingPeriod,
+            _proposalThreshold
         )
         GovernorVotes(IVotes(address(_resurgeToken)))
         GovernorVotesQuorumFraction(_quorumPercentage)
         GovernorTimelockControl(_timelock)
-    {
-        // The timelock is where proposals get executed. Ensure it's correctly set up.
-        // The `TimelockController` should grant the `PROPOSER_ROLE` and `EXECUTOR_ROLE` to this Governor contract.
-        // This needs to be done *after* the Governor is deployed, usually by the Timelock's initial admin.
-
-        // Set the timelock address for the Governor
-        _timelock.grantRole(_timelock.PROPOSER_ROLE(), address(this));
-        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(this));
-
-        // Set the quorum for votes
-
-    }
+    {}
 
     // The following functions are overrides required by Solidity
+
+    /// @notice Returns the current voting delay
     function votingDelay() public view override(IGovernor, GovernorSettings) returns (uint256) {
         return super.votingDelay();
     }
 
+    /// @notice Returns the current voting period
     function votingPeriod() public view override(IGovernor, GovernorSettings) returns (uint256) {
         return super.votingPeriod();
     }
 
+    /// @notice Returns the quorum required for a specific block number
     function quorum(uint256 blockNumber) public view override(IGovernor, GovernorVotesQuorumFraction) returns (uint256) {
         return super.quorum(blockNumber);
     }
 
+    /// @notice Returns the current state of a proposal
     function state(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (ProposalState) {
         return super.state(proposalId);
     }
 
+    /// @notice Returns the number of votes required to create a proposal
     function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.proposalThreshold();
     }
 
+    /// @notice Creates a new proposal
+    /// @param targets Target addresses for the proposal calls
+    /// @param values ETH values for the proposal calls
+    /// @param calldatas Encoded function calls
+    /// @param description Text description of the proposal
+    /// @return proposalId The unique identifier for the created proposal
     function propose(
         address[] memory targets,
         uint256[] memory values,
@@ -85,6 +98,7 @@ contract ResurgenceGovernance is
         return proposalId;
     }
 
+    /// @notice Executes a successful and queued proposal
     function _execute(
         uint256 proposalId,
         address[] memory targets,
@@ -95,6 +109,7 @@ contract ResurgenceGovernance is
         super._execute(proposalId, targets, values, calldatas, descriptionHash);
     }
 
+    /// @notice Cancels a proposal
     function _cancel(
         address[] memory targets,
         uint256[] memory values,
@@ -104,10 +119,12 @@ contract ResurgenceGovernance is
         return super._cancel(targets, values, calldatas, descriptionHash);
     }
 
+    /// @notice Returns the address of the executor (the timelock)
     function _executor() internal view override(Governor, GovernorTimelockControl) returns (address) {
         return super._executor();
     }
 
+    /// @notice Checks if the contract supports an interface
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -117,6 +134,7 @@ contract ResurgenceGovernance is
         return super.supportsInterface(interfaceId);
     }
     
+    /// @notice Returns the voting power of an account at a specific block
     function getVotes(address account, uint256 blockNumber)
         public
         view
@@ -126,11 +144,12 @@ contract ResurgenceGovernance is
         return super.getVotes(account, blockNumber);
     }
 
+    /// @notice Returns the most recently created proposal ID
     function latestProposalId() public view returns (uint256) {
         return _latestProposalId;
     }
 
-    // The following functions are overrides required by Solidity
+    /// @dev Internal function to count votes
     function _countVote(
         uint256 proposalId,
         address account,
@@ -141,6 +160,7 @@ contract ResurgenceGovernance is
         super._countVote(proposalId, account, support, weight, params);
     }
 
+    /// @dev Internal function to check if quorum is reached
     function _quorumReached(uint256 proposalId)
         internal
         view
@@ -150,6 +170,7 @@ contract ResurgenceGovernance is
         return super._quorumReached(proposalId);
     }
 
+    /// @dev Internal function to check if vote succeeded
     function _voteSucceeded(uint256 proposalId)
         internal
         view
@@ -159,17 +180,8 @@ contract ResurgenceGovernance is
         return super._voteSucceeded(proposalId);
     }
 
+    /// @notice Returns the timelock address
     function timelock() public view override(GovernorTimelockControl) returns (address) {
         return super.timelock();
     }
-
-    // Standard governor functions for proposing, voting, and executing proposals
-    // These are inherited, but can be overridden for custom logic.
-
-    // Key Proposals:
-    // - Adding/removing new DeadCoinStakingPool instances via StakingPoolManager.
-    // - Adjusting reward rates for existing pools.
-    // - Upgrading core contracts (via UUPSUpgradeable proxies, recommended for future-proofing).
-    // - Managing the RewardDistributor (e.g., updating maxMintSupply).
-    // - Managing a potential treasury for protocol operations.
 }

@@ -1,9 +1,16 @@
 import { http, createConfig } from 'wagmi'
-import { mainnet, sepolia } from 'wagmi/chains'
+import { mainnet, sepolia, polygon, polygonMumbai, arbitrum, optimism } from 'wagmi/chains'
 import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
 
+const hardhatLocal = {
+  id: 31337,
+  name: 'Hardhat Local',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
+} as const;
+
 export const config = createConfig({
-  chains: [mainnet, sepolia],
+  chains: [polygon, polygonMumbai, mainnet, sepolia, arbitrum, optimism, hardhatLocal],
   connectors: [
     injected(),
     coinbaseWallet({ appName: 'Resurgence Protocol' }),
@@ -11,7 +18,12 @@ export const config = createConfig({
   ],
   ssr: true,
   transports: {
-    mainnet: http(),
-    sepolia: http(),
+    [polygon.id]: http(),
+    [polygonMumbai.id]: http(),
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+    [arbitrum.id]: http(),
+    [optimism.id]: http(),
+    [hardhatLocal.id]: http(),
   },
-}) 
+})

@@ -1,0 +1,206 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: ResurgeToken
+    network: matic
+    source:
+      abi: ResurgeToken
+      address: "0xRESURGE_TOKEN_ADDRESS"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ResurgeToken
+        - User
+      abis:
+        - name: ResurgeToken
+          file: ./abi/ResurgeToken.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+        - event: Approval(indexed address,indexed address,uint256)
+          handler: handleApproval
+      file: ./src/mappings/resurgeToken.ts
+
+  - kind: ethereum
+    name: StakingPoolManager
+    network: matic
+    source:
+      abi: StakingPoolManager
+      address: "0xSTAKING_POOL_MANAGER_ADDRESS"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - StakingPool
+        - ProtocolMetrics
+      abis:
+        - name: StakingPoolManager
+          file: ./abi/StakingPoolManager.json
+      eventHandlers:
+        - event: StakingPoolAdded(indexed address,indexed address,uint256)
+          handler: handleStakingPoolAdded
+        - event: RewardRateUpdated(indexed address,uint256)
+          handler: handleRewardRateUpdated
+        - event: StakingPoolPaused(indexed address,indexed address)
+          handler: handleStakingPoolPaused
+        - event: StakingPoolUnpaused(indexed address,indexed address)
+          handler: handleStakingPoolUnpaused
+        - event: StakingPoolRemoved(indexed address,indexed address)
+          handler: handleStakingPoolRemoved
+        - event: ImplementationUpdated(indexed address)
+          handler: handleImplementationUpdated
+      file: ./src/mappings/pools.ts
+
+  - kind: ethereum
+    name: RewardDistributor
+    network: matic
+    source:
+      abi: RewardDistributor
+      address: "0xREWARD_DISTRIBUTOR_ADDRESS"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ResurgeToken
+        - User
+      abis:
+        - name: RewardDistributor
+          file: ./abi/RewardDistributor.json
+      eventHandlers:
+        - event: TokensMintedAndDistributed(indexed address,uint256)
+          handler: handleTokensMintedAndDistributed
+        - event: MaxMintSupplyUpdated(uint256)
+          handler: handleMaxMintSupplyUpdated
+        - event: StakingPoolAuthorized(indexed address)
+          handler: handleStakingPoolAuthorized
+        - event: StakingPoolDeauthorized(indexed address)
+          handler: handleStakingPoolDeauthorized
+      file: ./src/mappings/rewardDistributor.ts
+
+  - kind: ethereum
+    name: ResurgenceGovernance
+    network: matic
+    source:
+      abi: ResurgenceGovernance
+      address: "0xGOVERNANCE_ADDRESS"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - GovernanceProposal
+        - VoteReceipt
+        - User
+        - ProtocolMetrics
+      abis:
+        - name: ResurgenceGovernance
+          file: ./abi/ResurgenceGovernance.json
+      eventHandlers:
+        - event: ProposalCreated(uint256,address,address[],uint256[],string[],bytes[],uint256,uint256,string)
+          handler: handleProposalCreated
+        - event: ProposalExecuted(uint256)
+          handler: handleProposalExecuted
+        - event: ProposalCanceled(uint256)
+          handler: handleProposalCanceled
+        - event: ProposalQueued(uint256)
+          handler: handleProposalQueued
+        - event: VoteCast(uint256,indexed address,uint8,uint256,string)
+          handler: handleVoteCast
+      file: ./src/mappings/governance.ts
+
+  - kind: ethereum
+    name: ResurgenceTimelockController
+    network: matic
+    source:
+      abi: ResurgenceTimelockController
+      address: "0xTIMELOCK_CONTROLLER_ADDRESS"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - GovernanceProposal
+      abis:
+        - name: ResurgenceTimelockController
+          file: ./abi/ResurgenceTimelockController.json
+      eventHandlers:
+        - event: CallScheduled(indexed bytes32,indexed uint256,address,uint256,bytes,bytes32,uint256)
+          handler: handleCallScheduled
+        - event: CallExecuted(indexed bytes32,indexed uint256,address,uint256,bytes)
+          handler: handleCallExecuted
+        - event: Cancelled(indexed bytes32)
+          handler: handleCancelled
+  - kind: ethereum
+    name: ResurgeStakingPool
+    network: matic
+    source:
+      abi: ResurgeStakingPool
+      address: "0xRESURGE_STAKING_POOL_ADDRESS"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - StakingPool
+        - StakingPosition
+        - StakingEvent
+        - RewardClaimEvent
+        - ProtocolMetrics
+      abis:
+        - name: ResurgeStakingPool
+          file: ./abi/ResurgeStakingPool.json
+      eventHandlers:
+        - event: Staked(indexed address,uint256,indexed address)
+          handler: handleResurgeStaked
+        - event: Unstaked(indexed address,uint256)
+          handler: handleResurgeUnstaked
+        - event: RewardsClaimed(indexed address,uint256)
+          handler: handleResurgeRewardsClaimed
+      file: ./src/mappings/resurgeStaking.ts
+
+templates:
+  - kind: ethereum
+    name: DeadCoinStakingPool
+    network: matic
+    source:
+      abi: DeadCoinStakingPool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - StakingPool
+        - StakingPosition
+        - StakingEvent
+        - RewardClaimEvent
+        - ProtocolMetrics
+        - ResurgeToken
+      abis:
+        - name: DeadCoinStakingPool
+          file: ./abi/DeadCoinStakingPool.json
+      eventHandlers:
+        - event: Staked(indexed address,uint256)
+          handler: handleStaked
+        - event: Unstaked(indexed address,uint256)
+          handler: handleUnstaked
+        - event: RewardsClaimed(indexed address,uint256)
+          handler: handleRewardsClaimed
+        - event: RewardRateUpdated(uint256)
+          handler: handleRewardRateUpdated
+      file: ./src/mappings/staking.ts

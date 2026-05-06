@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 const { parseEther } = require("ethers");
 
 describe("Simple Staking Test", function () {
@@ -19,14 +19,14 @@ describe("Simple Staking Test", function () {
     console.log(`   - Timelock: ${timelock.address}`);
     console.log(`   - User: ${user.address}`);
     
-    // Deploy ResurgenceProtocol Token
-    console.log("\n🔹 Deploying ResurgenceProtocol...");
-    const Token = await ethers.getContractFactory("ResurgenceProtocol");
+    // Deploy ResurgeToken (Proxy)
+    console.log("\n🔹 Deploying ResurgeToken...");
+    const Token = await ethers.getContractFactory("ResurgeToken");
     const maxSupply = parseEther("1000000000"); // 1 billion tokens with 18 decimals
-    token = await Token.deploy(timelock.address, maxSupply);
+    token = await upgrades.deployProxy(Token, [timelock.address, maxSupply], { kind: 'uups' });
     await token.waitForDeployment();
     const tokenAddress = await token.getAddress();
-    console.log(`✅ ResurgenceProtocol token deployed at: ${tokenAddress}`);
+    console.log(`✅ ResurgeToken deployed at: ${tokenAddress}`);
     console.log(`   - Max supply: ${ethers.formatEther(maxSupply)} RESURGE`);
     
     // Deploy a mock DeadCoin ERC20 token

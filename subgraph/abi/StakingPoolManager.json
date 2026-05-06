@@ -1,0 +1,56 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "deadCoinAddress", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "poolAddress", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "initialRewardRate", "type": "uint256" }
+    ],
+    "name": "StakingPoolAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "deadCoinAddress", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "newRatePerSecond", "type": "uint256" }
+    ],
+    "name": "RewardRateUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "deadCoinAddress", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "poolAddress", "type": "address" }
+    ],
+    "name": "StakingPoolPaused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "deadCoinAddress", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "poolAddress", "type": "address" }
+    ],
+    "name": "StakingPoolUnpaused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "deadCoinAddress", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "poolAddress", "type": "address" }
+    ],
+    "name": "StakingPoolRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "newImplementation", "type": "address" }
+    ],
+    "name": "ImplementationUpdated",
+    "type": "event"
+  }
+]

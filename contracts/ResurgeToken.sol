@@ -1,56 +1,113 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20CappedUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract ResurgeToken is AccessControl, ERC20Pausable {
+/// @title ResurgeToken - The native governance and reward token of the Resurgence Protocol
+/// @notice ERC20 token with governance capabilities, pausable, burnable, and capped supply
+/// @dev Implements all required extensions per rpbp.txt: governance voting, permits, capped supply. UUPS Upgradeable.
+/// @custom:security-contact corpse911@gmail.com
+contract ResurgeToken is 
+    Initializable, 
+    ERC20Upgradeable, 
+    ERC20BurnableUpgradeable, 
+    ERC20PausableUpgradeable, 
+    ERC20PermitUpgradeable, 
+    ERC20VotesUpgradeable, 
+    ERC20CappedUpgradeable, 
+    AccessControlUpgradeable,
+    UUPSUpgradeable 
+{
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    
-    uint256 public immutable MAX_SUPPLY;
-    
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint256 maxSupply,
-        address rewardDistributor,
-        address timelock
-    ) ERC20(name, symbol) ERC20Pausable() {
-        MAX_SUPPLY = maxSupply;
-        
-        // Setup initial admin roles
-        _grantRole(DEFAULT_ADMIN_ROLE, timelock);
-        _grantRole(PAUSER_ROLE, timelock);
-        
-        // Grant MINTER_ROLE to RewardDistributor
-        _grantRole(MINTER_ROLE, rewardDistributor);
-        
-        // Set role admin for MINTER_ROLE and PAUSER_ROLE to DEFAULT_ADMIN_ROLE
-        _setRoleAdmin(MINTER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
-    
-    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) whenNotPaused {
-        require(totalSupply() + amount <= MAX_SUPPLY, "ResurgeToken: cannot exceed max supply");
-        _mint(to, amount);
+
+    /// @notice Initializes the RESURGE token with all required extensions
+    /// @param initialAdmin Address that will be granted admin roles initially
+    /// @param cap Maximum supply of tokens that can ever be minted
+    function initialize(address initialAdmin, uint256 cap) public initializer {
+        __ERC20_init("Resurgence Protocol", "RESURGE");
+        __ERC20Burnable_init();
+        __ERC20Pausable_init();
+        __ERC20Permit_init("Resurgence Protocol");
+        __ERC20Votes_init();
+        __ERC20Capped_init(cap);
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+
+        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
+        _grantRole(MINTER_ROLE, initialAdmin);
+        _grantRole(PAUSER_ROLE, initialAdmin);
     }
-    
+
+    /// @notice Pauses all token transfers - emergency function
+    /// @dev Only callable by accounts with PAUSER_ROLE
     function pause() public onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
+    /// @notice Unpauses token transfers
+    /// @dev Only callable by accounts with PAUSER_ROLE
     function unpause() public onlyRole(PAUSER_ROLE) {
         _unpause();
     }
+
+    /// @notice Mints new tokens to specified address
+    /// @dev Only callable by accounts with MINTER_ROLE, respects cap limit
+    /// @param to Address to mint tokens to
+    /// @param amount Amount of tokens to mint
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
+        _mint(to, amount);
+    }
+
+    /// @dev Internal function to authorize an upgrade
+    /// @param newImplementation Address of the new implementation
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     // The following functions are overrides required by Solidity for multiple inheritance.
 
     function _beforeTokenTransfer(address from, address to, uint256 amount)
         internal
-        override(ERC20Pausable)
+        override(ERC20Upgradeable, ERC20PausableUpgradeable)
     {
         super._beforeTokenTransfer(from, to, amount);
     }
+
+    function _afterTokenTransfer(address from, address to, uint256 amount)
+        internal
+        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+    {
+        super._afterTokenTransfer(from, to, amount);
+    }
+
+    function _burn(address account, uint256 amount)
+        internal
+        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+    {
+        super._burn(account, amount);
+    }
+
+    function _mint(address account, uint256 amount)
+        internal
+        override(ERC20Upgradeable, ERC20CappedUpgradeable, ERC20VotesUpgradeable)
+    {
+        super._mint(account, amount);
+    }
+
+    /**
+     * @dev Gap for future storage variables.
+     */
+    uint256[50] private __gap;
 }

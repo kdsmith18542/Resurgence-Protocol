@@ -1,6 +1,5 @@
 'use client';
-
-import { useConnect, useDisconnect } from 'wagmi';
+import { useConnect } from 'wagmi';
 import { useState } from 'react';
 
 interface WalletConnectModalProps {
@@ -10,7 +9,6 @@ interface WalletConnectModalProps {
 
 export default function WalletConnectModal({ isOpen, onClose }: WalletConnectModalProps) {
   const { connectors, connect } = useConnect();
-  const { disconnect } = useDisconnect();
   const [isConnecting, setIsConnecting] = useState(false);
 
   if (!isOpen) return null;
@@ -21,7 +19,7 @@ export default function WalletConnectModal({ isOpen, onClose }: WalletConnectMod
       const connector = connectors.find((c) => c.id === connectorId);
       if (connector) {
         await connect({ connector });
-        onClose(); // Close modal on successful connection
+        onClose();
       }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
@@ -31,29 +29,25 @@ export default function WalletConnectModal({ isOpen, onClose }: WalletConnectMod
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-gray-700 p-8 rounded-lg shadow-lg w-96">
-        <h2 className="text-white text-2xl font-bold mb-6 text-center">Connect Wallet</h2>
-        <div className="space-y-4">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-sm border border-gray-700" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-white mb-5 text-center">Connect Wallet</h2>
+        <div className="space-y-3">
           {connectors.map((connector) => (
             <button
               key={connector.uid}
               onClick={() => handleConnect(connector.id)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-md transition duration-300"
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 rounded-xl transition-colors disabled:opacity-50"
               disabled={isConnecting}
             >
-              {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
+              {connector.name}
             </button>
           ))}
-          <button
-            onClick={onClose}
-            className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-md transition duration-300"
-            disabled={isConnecting}
-          >
+          <button onClick={onClose} className="w-full text-gray-400 hover:text-white py-2 text-sm transition-colors">
             Cancel
           </button>
         </div>
       </div>
     </div>
   );
-} 
+}

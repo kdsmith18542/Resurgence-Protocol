@@ -1,90 +1,166 @@
 const hre = require("hardhat");
+const { upgrades } = require("hardhat");
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
 
   console.log("Deploying contracts with the account:", deployer.address);
+  console.log("");
 
-  const ResurgenceProtocol = await hre.ethers.getContractFactory("ResurgenceProtocol");
-  const resurgenceProtocol = await ResurgenceProtocol.deploy(deployer.address, 1000000000000000000000000000n); // Example cap: 1 billion tokens
+  // 1. Deploy ResurgeToken (UUPS Proxy)
+  console.log("1. Deploying ResurgeToken (UUPS proxy)...");
+  const ResurgeToken = await hre.ethers.getContractFactory("ResurgeToken");
+  const maxSupply = 1000000000000000000000000000n; // 1 billion tokens
+  const resurgenceToken = await upgrades.deployProxy(
+    ResurgeToken,
+    [deployer.address, maxSupply],
+    { kind: 'uups' }
+  );
+  await resurgenceToken.waitForDeployment();
+  console.log("   ResurgeToken proxy:", await resurgenceToken.getAddress());
+  console.log("");
 
-  await resurgenceProtocol.waitForDeployment();
-
-  console.log("ResurgenceProtocol deployed to:", await resurgenceProtocol.getAddress());
-
-  // Deploy TimelockController
+  // 2. Deploy TimelockController
+  console.log("2. Deploying TimelockController...");
   const ResurgenceTimelockController = await hre.ethers.getContractFactory("ResurgenceTimelockController");
-  // minDelay, proposers, executors, admin
-  // For now, deployer is admin, and governor will be proposer/executor later
   const minDelay = 3600; // 1 hour
-  const proposers = [deployer.address]; // Temporarily deployer, will be replaced by governance
-  const executors = [deployer.address]; // Temporarily deployer, will be replaced by governance
+  const proposers = [deployer.address];
+  const executors = [deployer.address];
   const admin = deployer.address;
-
   const timelockController = await ResurgenceTimelockController.deploy(minDelay, proposers, executors, admin);
   await timelockController.waitForDeployment();
-  console.log("TimelockController deployed to:", await timelockController.getAddress());
+  console.log("   TimelockController:", await timelockController.getAddress());
+  console.log("");
 
-  // Deploy RewardDistributor
+  // 3. Deploy RewardDistributor (UUPS Proxy)
+  console.log("3. Deploying RewardDistributor (UUPS proxy)...");
   const RewardDistributor = await hre.ethers.getContractFactory("RewardDistributor");
-  const rewardDistributor = await RewardDistributor.deploy(await resurgenceProtocol.getAddress());
+  const initialMaxMintSupply = 500000000n * 10n**18n; // 500 million tokens
+  const rewardDistributor = await upgrades.deployProxy(
+    RewardDistributor,
+    [await resurgenceToken.getAddress(), initialMaxMintSupply, await timelockController.getAddress()],
+    { kind: 'uups' }
+  );
   await rewardDistributor.waitForDeployment();
-  console.log("RewardDistributor deployed to:", await rewardDistributor.getAddress());
+  console.log("   RewardDistributor proxy:", await rewardDistributor.getAddress());
+  console.log("");
 
-  // Grant MINTER_ROLE to RewardDistributor
-  const MINTER_ROLE = await resurgenceProtocol.MINTER_ROLE();
-  await resurgenceProtocol.grantRole(MINTER_ROLE, await rewardDistributor.getAddress());
-  console.log("MINTER_ROLE granted to RewardDistributor");
+  // 4. Grant MINTER_ROLE to RewardDistributor
+  console.log("4. Granting MINTER_ROLE to RewardDistributor...");
+  const MINTER_ROLE = await resurgenceToken.MINTER_ROLE();
+  await resurgenceToken.grantRole(MINTER_ROLE, await rewardDistributor.getAddress());
+  console.log("   Done");
+  console.log("");
 
-  // Deploy ResurgenceGovernance
+  // 5. Deploy DeadCoinStakingPool implementation (logic contract)
+  console.log("5. Deploying DeadCoinStakingPool implementation...");
+  const DeadCoinStakingPool = await hre.ethers.getContractFactory("DeadCoinStakingPool");
+  const stakingPoolImplementation = await DeadCoinStakingPool.deploy();
+  await stakingPoolImplementation.waitForDeployment();
+  console.log("   Implementation:", await stakingPoolImplementation.getAddress());
+  console.log("");
+
+  // 6. Deploy StakingPoolManager (UUPS Proxy)
+  console.log("6. Deploying StakingPoolManager (UUPS proxy)...");
+  const StakingPoolManager = await hre.ethers.getContractFactory("StakingPoolManager");
+  const stakingPoolManager = await upgrades.deployProxy(
+    StakingPoolManager,
+    [
+      await resurgenceToken.getAddress(),
+      await rewardDistributor.getAddress(),
+      await stakingPoolImplementation.getAddress(),
+      await timelockController.getAddress()
+    ],
+    { kind: 'uups' }
+  );
+  await stakingPoolManager.waitForDeployment();
+  console.log("   StakingPoolManager proxy:", await stakingPoolManager.getAddress());
+  console.log("");
+
+  // 6.5. Deploy ResurgeStakingPool (UUPS Proxy)
+  console.log("6.5. Deploying ResurgeStakingPool (UUPS proxy)...");
+  const ResurgeStakingPool = await hre.ethers.getContractFactory("ResurgeStakingPool");
+  const nativeRewardRate = 1000000000000000000n; // 1 RESURGE/sec
+  const resurgeStakingPool = await upgrades.deployProxy(
+    ResurgeStakingPool,
+    [
+      await resurgenceToken.getAddress(),
+      await rewardDistributor.getAddress(),
+      await timelockController.getAddress(),
+      nativeRewardRate
+    ],
+    { kind: 'uups' }
+  );
+  await resurgeStakingPool.waitForDeployment();
+  console.log("   ResurgeStakingPool proxy:", await resurgeStakingPool.getAddress());
+  console.log("");
+
+  // 6.6. Authorize ResurgeStakingPool in RewardDistributor
+  console.log("6.6. Authorizing ResurgeStakingPool in RewardDistributor...");
+  await rewardDistributor.authorizeStakingPool(await resurgeStakingPool.getAddress());
+  console.log("   Done");
+  console.log("");
+
+  // 7. Deploy ResurgenceGovernance (not upgradeable by design)
+  console.log("7. Deploying ResurgenceGovernance...");
   const ResurgenceGovernance = await hre.ethers.getContractFactory("ResurgenceGovernance");
-  // _resurgeToken, _timelock, _votingDelay, _votingPeriod, _quorumNumeratorValue
-  const votingDelay = 1; // 1 block
-  const votingPeriod = 50400; // 1 week in blocks (assuming 12s/block)
-  const quorumNumeratorValue = 4; // 4% quorum
-
+  const votingDelay = 1;
+  const votingPeriod = 50400; // ~1 week at 12s/block
+  const quorumPercentage = 4; // 4%
+  const proposalThreshold = 1000n * 10n**18n; // 1000 RESURGE
   const resurgenceGovernance = await ResurgenceGovernance.deploy(
-    await resurgenceProtocol.getAddress(),
+    await resurgenceToken.getAddress(),
     await timelockController.getAddress(),
     votingDelay,
     votingPeriod,
-    quorumNumeratorValue
+    quorumPercentage,
+    proposalThreshold
   );
   await resurgenceGovernance.waitForDeployment();
-  console.log("ResurgenceGovernance deployed to:", await resurgenceGovernance.getAddress());
+  console.log("   ResurgenceGovernance:", await resurgenceGovernance.getAddress());
+  console.log("");
 
-  // Grant PROPOSER_ROLE and EXECUTOR_ROLE to ResurgenceGovernance in TimelockController
+  // 8. Configure governance roles in Timelock
+  console.log("8. Configuring Timelock roles for Governance...");
   const PROPOSER_ROLE = await timelockController.PROPOSER_ROLE();
   const EXECUTOR_ROLE = await timelockController.EXECUTOR_ROLE();
+  const DEFAULT_ADMIN_ROLE = await timelockController.DEFAULT_ADMIN_ROLE();
 
-  // Revoke deployer's proposer and executor roles from TimelockController
-  await timelockController.revokeRole(PROPOSER_ROLE, deployer.address);
-  await timelockController.revokeRole(EXECUTOR_ROLE, deployer.address);
-
-  // Grant governor proposer and executor roles
   await timelockController.grantRole(PROPOSER_ROLE, await resurgenceGovernance.getAddress());
   await timelockController.grantRole(EXECUTOR_ROLE, await resurgenceGovernance.getAddress());
-  console.log("PROPOSER_ROLE and EXECUTOR_ROLE granted to ResurgenceGovernance");
+  await timelockController.revokeRole(PROPOSER_ROLE, deployer.address);
+  await timelockController.revokeRole(EXECUTOR_ROLE, deployer.address);
+  console.log("   Governance is now proposer and executor");
+  console.log("");
 
-  // Deploy StakingPoolManager
-  const StakingPoolManager = await hre.ethers.getContractFactory("StakingPoolManager");
-  const stakingPoolManager = await StakingPoolManager.deploy(
-    await resurgenceProtocol.getAddress(),
-    await rewardDistributor.getAddress()
-  );
-  await stakingPoolManager.waitForDeployment();
-  console.log("StakingPoolManager deployed to:", await stakingPoolManager.getAddress());
+  // 9. Transfer all admin roles to Timelock
+  console.log("9. Transferring admin roles to Timelock...");
+  await resurgenceToken.grantRole(DEFAULT_ADMIN_ROLE, await timelockController.getAddress());
+  await resurgenceToken.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  console.log("   ResurgeToken admin -> Timelock");
+  console.log("");
 
-  // Transfer ownership of StakingPoolManager and RewardDistributor to ResurgenceGovernance
-  // This will be done via a governance proposal in a real scenario, but for deployment script, we do it directly.
-  await stakingPoolManager.transferOwnership(await resurgenceGovernance.getAddress());
-  console.log("StakingPoolManager ownership transferred to ResurgenceGovernance");
+  // 10. Renounce temporary deployer roles in other contracts
+  console.log("10. Renouncing temporary deployer roles...");
+  await rewardDistributor.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  await rewardDistributor.renounceRole(await rewardDistributor.TIMELOCK_ROLE(), deployer.address);
+  
+  await stakingPoolManager.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  await stakingPoolManager.renounceRole(await stakingPoolManager.TIMELOCK_ROLE(), deployer.address);
+  
+  await resurgeStakingPool.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  await resurgeStakingPool.renounceRole(await resurgeStakingPool.TIMELOCK_ROLE(), deployer.address);
+  console.log("    Done");
+  console.log("");
 
-  await rewardDistributor.transferOwnership(await resurgenceGovernance.getAddress());
-  console.log("RewardDistributor ownership transferred to ResurgenceGovernance");
-
-  // Save the contract address to a file or update your configuration
-  // For now, we will just log it.
+  console.log("=== Deployment Complete ===");
+  console.log("ResurgeToken (proxy):        ", await resurgenceToken.getAddress());
+  console.log("TimelockController:           ", await timelockController.getAddress());
+  console.log("RewardDistributor (proxy):    ", await rewardDistributor.getAddress());
+  console.log("DeadCoinStakingPool (impl):   ", await stakingPoolImplementation.getAddress());
+  console.log("ResurgeStakingPool (proxy):  ", await resurgeStakingPool.getAddress());
+  console.log("StakingPoolManager (proxy):   ", await stakingPoolManager.getAddress());
+  console.log("ResurgenceGovernance:         ", await resurgenceGovernance.getAddress());
 }
 
 main()

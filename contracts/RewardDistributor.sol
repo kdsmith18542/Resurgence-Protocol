@@ -1,114 +1,244 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "./ResurgenceProtocol.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "./ResurgeToken.sol";
 
-contract RewardDistributor is AccessControl, Pausable {
+interface IPriceOracle {
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+    function decimals() external view returns (uint8);
+}
+
+/// @title RewardDistributor - Manages the minting and distribution of RESURGE rewards
+/// @notice This contract is authorized to mint RESURGE tokens and is called by staking pools
+/// @dev Implements AccessControl for management and Pausable for emergencies. UUPS Upgradeable.
+contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
+    bytes32 public constant ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
     
-    ResurgenceProtocol public resurgenceToken;
+    /// @notice Custom errors for gas efficiency
+    error RewardDistributor_UnauthorizedPool();
+    error RewardDistributor_ExceedsMaxSupply();
+    error RewardDistributor_InvalidAddress();
+    error RewardDistributor_SupplyTooLow();
+    error RewardDistributor_OracleStale();
+    error RewardDistributor_OracleNotSet();
+
+    ResurgeToken public resurgenceToken;
     uint256 public totalResurgeMinted;
     uint256 public maxMintSupply;
     mapping(address => bool) public authorizedStakingPools;
 
+    // Oracle configuration
+    IPriceOracle public priceOracle;
+    uint256 public oracleStaleThreshold;
+    uint256 public oracleLastUpdate;
+    uint256 public oracleLastPrice;
+    bool public oracleEnabled;
+    address public fallbackPriceAddress;
+
     event TokensMintedAndDistributed(address indexed to, uint256 amount);
     event MaxMintSupplyUpdated(uint256 newMaxSupply);
     event StakingPoolAuthorized(address indexed stakingPool);
-    event StakingPoolUnauthorized(address indexed stakingPool);
-    event DebugLog(string message, address addr, uint256 value1, uint256 value2, uint256 value3);
-    event DebugLogString(string message);
+    event StakingPoolDeauthorized(address indexed stakingPool);
+    event PriceOracleSet(address indexed oracle, uint8 decimals);
+    event OracleEnabled(bool enabled);
+    event OraclePriceUpdated(uint256 price, uint256 timestamp);
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the RewardDistributor with the token and initial supply cap
+    /// @param _resurgenceTokenAddress Address of the RESURGE token
+    /// @param _initialMaxMintSupply Initial maximum tokens that can be minted via rewards
+    /// @param _timelock Address of the Timelock controller
+    function initialize(
         address _resurgenceTokenAddress, 
         uint256 _initialMaxMintSupply,
         address _timelock
-    ) {
-        resurgenceToken = ResurgenceProtocol(_resurgenceTokenAddress);
+    ) public initializer {
+        if (_resurgenceTokenAddress == address(0) || _timelock == address(0)) revert RewardDistributor_InvalidAddress();
+        
+        __AccessControl_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+
+        resurgenceToken = ResurgeToken(_resurgenceTokenAddress);
         maxMintSupply = _initialMaxMintSupply;
         
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
         _grantRole(EMERGENCY_PAUSER, _timelock);
+
+        // Grant temporary roles to deployer for setup
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(TIMELOCK_ROLE, msg.sender);
     }
 
-    function authorizeStakingPool(address _stakingPool) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
-        require(_stakingPool != address(0), "Invalid address");
+    /// @notice Authorizes a staking pool to call mintAndDistribute
+    /// @param _stakingPool Address of the pool to authorize
+    function authorizeStakingPool(address _stakingPool) public onlyRole(TIMELOCK_ROLE) {
+        if (_stakingPool == address(0)) revert RewardDistributor_InvalidAddress();
         authorizedStakingPools[_stakingPool] = true;
         emit StakingPoolAuthorized(_stakingPool);
     }
 
-    function unauthorizeStakingPool(address _stakingPool) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
-        require(_stakingPool != address(0), "Invalid address");
+    /// @notice Deauthorizes a staking pool
+    /// @param _stakingPool Address of the pool to deauthorize
+    function unauthorizeStakingPool(address _stakingPool) public onlyRole(TIMELOCK_ROLE) {
+        if (_stakingPool == address(0)) revert RewardDistributor_InvalidAddress();
         authorizedStakingPools[_stakingPool] = false;
-        emit StakingPoolUnauthorized(_stakingPool);
+        emit StakingPoolDeauthorized(_stakingPool);
     }
 
+    /// @notice Mints and distributes rewards to a user
+    /// @dev Only callable by authorized staking pools
+    /// @param _to User address to receive rewards
+    /// @param _amount Amount of RESURGE to mint
+    /// @return Success boolean
     function mintAndDistribute(address _to, uint256 _amount) public whenNotPaused returns (bool) {
-        emit DebugLog("Starting mintAndDistribute", msg.sender, _amount, 0, 0);
+        if (!authorizedStakingPools[msg.sender]) revert RewardDistributor_UnauthorizedPool();
         
-        // Check if caller is authorized
-        bool isAuthorized = authorizedStakingPools[msg.sender];
-        emit DebugLog("Authorization check", msg.sender, isAuthorized ? 1 : 0, 0, 0);
-        require(isAuthorized, "Caller is not an authorized staking pool");
-        
-        // Check supply limits
         uint256 newTotalMinted = totalResurgeMinted + _amount;
-        bool withinSupplyLimit = newTotalMinted <= maxMintSupply;
-        emit DebugLog("Supply check", _to, newTotalMinted, maxMintSupply, withinSupplyLimit ? 1 : 0);
-        require(withinSupplyLimit, "Minting would exceed max supply");
+        if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
         
-        // Get current balance for verification
-        uint256 balanceBefore = resurgenceToken.balanceOf(_to);
-        emit DebugLog("Balance before mint", _to, balanceBefore, 0, 0);
-        
-        // Try to mint with detailed error handling
-        try resurgenceToken.mint(_to, _amount) {
-            totalResurgeMinted = newTotalMinted;
-            emit TokensMintedAndDistributed(_to, _amount);
-            emit DebugLog("Successfully minted", _to, _amount, totalResurgeMinted, 0);
-            
-            // Verify the tokens were actually minted
-            uint256 balanceAfter = resurgenceToken.balanceOf(_to);
-            uint256 actualMinted = balanceAfter - balanceBefore;
-            emit DebugLog("Balance after mint", _to, balanceAfter, actualMinted, 0);
-            
-            if (actualMinted != _amount) {
-                emit DebugLog("Minting amount mismatch", _to, _amount, actualMinted, 0);
-                return false;
-            }
-            
-            return true;
-        } catch Error(string memory reason) {
-            emit DebugLog("Minting failed with error", _to, _amount, 0, 0);
-            emit DebugLogString(reason);
-            
-            // Additional debug for minter role
-            bytes32 minterRole = resurgenceToken.MINTER_ROLE();
-            bool hasMinterRole = resurgenceToken.hasRole(minterRole, address(this));
-            bytes32 minterRoleAdmin = resurgenceToken.getRoleAdmin(minterRole);
-            emit DebugLog("Minter role check", address(this), hasMinterRole ? 1 : 0, 0, 0);
-            emit DebugLog("MINTER_ROLE admin", address(0), uint256(minterRoleAdmin), 0, 0);
-            
-            return false;
-        } catch (bytes memory) {
-            emit DebugLog("Minting failed with unknown error", _to, _amount, 0, 0);
-            return false;
-        }
+        totalResurgeMinted = newTotalMinted;
+        resurgenceToken.mint(_to, _amount);
+        emit TokensMintedAndDistributed(_to, _amount);
+        return true;
     }
 
+    /// @notice Backwards compatibility function for adding authorized pools
+    /// @param _stakingPool Address to authorize
+    function addAuthorizedStakingPool(address _stakingPool) public onlyRole(TIMELOCK_ROLE) {
+        authorizeStakingPool(_stakingPool);
+    }
+
+    /// @notice Backwards compatibility function for removing authorized pools
+    /// @param _stakingPool Address to deauthorize
+    function removeAuthorizedStakingPool(address _stakingPool) public onlyRole(TIMELOCK_ROLE) {
+        unauthorizeStakingPool(_stakingPool);
+    }
+
+    /// @notice Updates the maximum supply that can be minted via rewards
+    /// @param _newMaxSupply New supply cap
     function setMaxMintSupply(uint256 _newMaxSupply) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
+        if (_newMaxSupply < totalResurgeMinted) revert RewardDistributor_SupplyTooLow();
         maxMintSupply = _newMaxSupply;
         emit MaxMintSupplyUpdated(_newMaxSupply);
     }
 
+    /// @notice Sets the Chainlink price oracle for RESURGE
+    /// @param _oracle Address of the Chainlink aggregator
+    /// @param _staleThreshold Maximum seconds before oracle data is considered stale
+    function setPriceOracle(address _oracle, uint256 _staleThreshold) public onlyRole(TIMELOCK_ROLE) {
+        if (_oracle == address(0)) revert RewardDistributor_InvalidAddress();
+        priceOracle = IPriceOracle(_oracle);
+        oracleStaleThreshold = _staleThreshold > 0 ? _staleThreshold : 3600;
+        oracleEnabled = true;
+        emit PriceOracleSet(_oracle, priceOracle.decimals());
+    }
+
+    /// @notice Enables or disables the oracle-based emission adjustment
+    function setOracleEnabled(bool _enabled) public onlyRole(TIMELOCK_ROLE) {
+        oracleEnabled = _enabled;
+        emit OracleEnabled(_enabled);
+    }
+
+    /// @notice Manually sets the price when oracle is unavailable (fallback)
+    /// @param _price The RESURGE price in oracle decimals (e.g. 8)
+    function setFallbackPrice(uint256 _price) public onlyRole(ORACLE_MANAGER_ROLE) {
+        oracleLastPrice = _price;
+        oracleLastUpdate = block.timestamp;
+        emit OraclePriceUpdated(_price, block.timestamp);
+    }
+
+    /// @notice Returns the current RESURGE price from the oracle
+    /// @return price The current price in oracle decimals (8 for Chainlink USD feeds)
+    /// @return valid Whether the oracle data is fresh
+    function getResurgePrice() public view returns (uint256 price, bool valid) {
+        if (!oracleEnabled || address(priceOracle) == address(0)) {
+            // Check fallback
+            if (oracleLastPrice > 0 && block.timestamp < oracleLastUpdate + oracleStaleThreshold) {
+                return (oracleLastPrice, true);
+            }
+            return (0, false);
+        }
+        
+        try priceOracle.latestRoundData() returns (
+            uint80,
+            int256 answer,
+            uint256,
+            uint256 updatedAt,
+            uint80
+        ) {
+            if (answer <= 0) return (0, false);
+            if (updatedAt == 0 || block.timestamp > updatedAt + oracleStaleThreshold) {
+                // Stale data, try fallback
+                if (oracleLastPrice > 0 && block.timestamp < oracleLastUpdate + oracleStaleThreshold) {
+                    return (oracleLastPrice, true);
+                }
+                return (0, false);
+            }
+            
+            price = uint256(answer);
+            valid = true;
+        } catch {
+            if (oracleLastPrice > 0 && block.timestamp < oracleLastUpdate + oracleStaleThreshold) {
+                return (oracleLastPrice, true);
+            }
+            return (0, false);
+        }
+    }
+
+    /// @notice Calculates an emission multiplier based on RESURGE price
+    /// @dev Higher price → higher emission rate (more reward value)
+    /// @return multiplier Basis points multiplier (10000 = 1x)
+    function getEmissionMultiplier() public view returns (uint256) {
+        (uint256 price, bool valid) = getResurgePrice();
+        if (!valid || price == 0) return 10000;
+
+        // Base price at $0.05 with 8 decimals = 5000000
+        uint256 basePrice = 5000000;
+
+        if (price <= basePrice) return 10000;
+
+        // 10% increase per $0.01 above base (capped at 2x at $0.15)
+        uint256 excess = price - basePrice;
+        uint256 multiplier = 10000 + (excess * 1000) / 1000000;
+        if (multiplier > 20000) multiplier = 20000;
+
+        return multiplier;
+    }
+
+    /// @notice Pauses the distributor in case of emergency
     function pause() public onlyRole(EMERGENCY_PAUSER) {
         _pause();
     }
 
+    /// @notice Unpauses the distributor
     function unpause() public onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+
+    /// @dev Internal function to authorize an upgrade
+    /// @param newImplementation Address of the new implementation
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(TIMELOCK_ROLE) {}
+
+    /**
+     * @dev Gap for future storage variables.
+     */
+    uint256[44] private __gap;
 }
