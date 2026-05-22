@@ -50,6 +50,13 @@ hardhat_node.log
 ehthumbs.db
 Thumbs.db
 
+# Next.js frontend
+frontend/.next/
+frontend/out/
+frontend/build/
+*.tsbuildinfo
+
 # Project Specific
 .qodo/
+.kilo/
 
