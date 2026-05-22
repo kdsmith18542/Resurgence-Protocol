@@ -1,0 +1,91 @@
+{
+  "_comment": "Tenderly alert configuration for Resurgence Protocol. Import via Tenderly dashboard or CLI.",
+  "_docs": "https://docs.tenderly.co/alerts/",
+  "project": "resurgence-protocol",
+  "network": 137,
+  "alerts": [
+    {
+      "name": "Large Stake Event",
+      "description": "Someone stakes more than 1M tokens in a single transaction",
+      "type": "log",
+      "event_signature": "Staked(address,uint256)",
+      "filter": {
+        "parameter_index": 1,
+        "operator": "gte",
+        "value": "1000000000000000000000000"
+      },
+      "channels": ["discord", "email"],
+      "severity": "medium"
+    },
+    {
+      "name": "Large Unstake Event",
+      "description": "Someone unstakes more than 1M tokens — possible exit or pool drain",
+      "type": "log",
+      "event_signature": "Unstaked(address,uint256)",
+      "filter": {
+        "parameter_index": 1,
+        "operator": "gte",
+        "value": "1000000000000000000000000"
+      },
+      "channels": ["discord", "email"],
+      "severity": "medium"
+    },
+    {
+      "name": "Pool Paused",
+      "description": "A staking pool has been paused — requires immediate investigation",
+      "type": "log",
+      "event_signature": "Paused(address)",
+      "channels": ["discord", "email", "pagerduty"],
+      "severity": "high"
+    },
+    {
+      "name": "Contract Upgrade",
+      "description": "A UUPS proxy has been upgraded — verify this was authorized by governance",
+      "type": "log",
+      "event_signature": "Upgraded(address)",
+      "channels": ["discord", "email", "pagerduty"],
+      "severity": "critical"
+    },
+    {
+      "name": "Governance Proposal Created",
+      "description": "A new governance proposal has been submitted",
+      "type": "log",
+      "event_signature": "ProposalCreated(uint256,address,address[],uint256[],string[],bytes[],uint256,uint256,string)",
+      "channels": ["discord"],
+      "severity": "info"
+    },
+    {
+      "name": "Governance Proposal Executed",
+      "description": "A governance proposal has been executed via Timelock",
+      "type": "log",
+      "event_signature": "ProposalExecuted(uint256)",
+      "channels": ["discord", "email"],
+      "severity": "medium"
+    },
+    {
+      "name": "Reward Rate Changed",
+      "description": "Pool reward rate has been updated by governance",
+      "type": "log",
+      "event_signature": "RewardRateUpdated(uint256,uint256)",
+      "channels": ["discord"],
+      "severity": "info"
+    },
+    {
+      "name": "RESURGE Mint Approaching Cap",
+      "description": "Total RESURGE minted is within 5% of maxMintSupply",
+      "type": "state",
+      "contract": "RewardDistributor",
+      "condition": "totalResurgeMinted >= maxMintSupply * 95 / 100",
+      "channels": ["discord", "email"],
+      "severity": "high"
+    },
+    {
+      "name": "Failed Transaction — Reentrancy Attempt",
+      "description": "A transaction reverted with ReentrancyGuardReentrantCall — possible attack attempt",
+      "type": "tx_error",
+      "revert_reason": "ReentrancyGuardReentrantCall",
+      "channels": ["email", "pagerduty"],
+      "severity": "critical"
+    }
+  ]
+}

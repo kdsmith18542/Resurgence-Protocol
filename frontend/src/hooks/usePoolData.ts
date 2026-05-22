@@ -13,14 +13,14 @@ export function useStakingPoolManager() {
   const chainId = useChainId();
   const managerAddress = getContractAddress(chainId, 'StakingPoolManager') as `0x${string}`;
 
-  const { data: deadCoinCount } = useReadContract({
+  const { data: firstDeadCoin } = useReadContract({
     abi: STAKING_POOL_MANAGER_ABI,
     address: managerAddress,
     functionName: 'supportedDeadCoins',
     args: [0n],
   });
 
-  return { managerAddress, deadCoinCount };
+  return { managerAddress, firstDeadCoin };
 }
 
 export function usePoolAddress(deadCoinAddress?: `0x${string}`) {

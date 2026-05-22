@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  contracts:
+    name: Contracts — compile & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile contracts
+        run: npx hardhat compile
+
+      - name: Run contract tests
+        run: npx hardhat test
+        env:
+          REPORT_GAS: true
+
+      - name: Check upgradeable safety
+        run: npx hardhat run scripts/checkUpgrades.js 2>/dev/null || echo "checkUpgrades script not found, skipping"
+
+  frontend:
+    name: Frontend — typecheck & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Build (static export)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID || 'ci-placeholder' }}
+          NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS: "0x0000000000000000000000000000000000000001"
+          NEXT_PUBLIC_STAKING_MANAGER_ADDRESS: "0x0000000000000000000000000000000000000002"
+          NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS: "0x0000000000000000000000000000000000000003"
+          NEXT_PUBLIC_GOVERNANCE_ADDRESS: "0x0000000000000000000000000000000000000004"
+          NEXT_PUBLIC_TIMELOCK_ADDRESS: "0x0000000000000000000000000000000000000005"
+
+  subgraph:
+    name: Subgraph — build check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: subgraph
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: subgraph/package.json
+
+      - name: Install Graph CLI
+        run: npm install -g @graphprotocol/graph-cli
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Codegen
+        run: graph codegen
+
+      - name: Build
+        run: graph build

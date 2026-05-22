@@ -1,4 +1,10 @@
-export const SUBGRAPH_URL = process.env.NEXT_PUBLIC_SUBGRAPH_URL || '';
+const SUBGRAPH_URL = process.env.NEXT_PUBLIC_SUBGRAPH_URL;
+
+function getSubgraphUrl(): string {
+  if (SUBGRAPH_URL) return SUBGRAPH_URL;
+  if (typeof window !== 'undefined') return '/api/subgraph';
+  return 'http://localhost:3000/api/subgraph';
+}
 
 interface SubgraphResponse<T> {
   data?: T;
@@ -6,9 +12,9 @@ interface SubgraphResponse<T> {
 }
 
 async function query<T>(queryString: string): Promise<T | null> {
-  if (!SUBGRAPH_URL) return null;
+  const url = getSubgraphUrl();
   try {
-    const res = await fetch(SUBGRAPH_URL, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: queryString }),
@@ -112,7 +118,7 @@ export async function fetchPoolsWithUserPosition(userAddress: string): Promise<S
     const pools: SubgraphPoolWithPosition[] = d?.stakingPools || [];
     if (userAddress && pools.length > 0) {
       const poolIds = pools.map((p: any) => `"${p.id}"`).join(',');
-      const posData = await query(`
+      const posData: any = await query(`
         {
           stakingPositions(where: { user: "${userAddress.toLowerCase()}", pool_in: [${poolIds}] }) {
             pool { id }

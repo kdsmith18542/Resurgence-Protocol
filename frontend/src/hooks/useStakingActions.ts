@@ -1,6 +1,7 @@
 'use client';
-import { useWriteContract, useSimulateContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useWriteContract, useSimulateContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { ABIS } from '@/lib/abis';
+import { getContractAddress } from '@/lib/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -65,8 +66,8 @@ export function useApproveToken(tokenAddress: `0x${string}`, spender: `0x${strin
 }
 
 export function useDelegate() {
-  const chainId = 137;
-  const tokenAddress = process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS as `0x${string}`;
+  const chainId = useChainId();
+  const tokenAddress = getContractAddress(chainId, 'ResurgeToken') as `0x${string}`;
   const queryClient = useQueryClient();
   const { data: hash, isPending, writeContract } = useWriteContract();
 

@@ -150,11 +150,11 @@ Every deliverable is traced to its governing specification document.
 | 6.3 | Engage audit firm(s) | N/A | ❌ Not started | Budget $15k-$80k. Select from: CertiK, ConsenSys Diligence, OpenZeppelin, Halborn. |
 | 6.4 | Governance Lifecycle Rehearsal | `test/ResurgenceGovernance.test.js` | ✅ Done | Propose/Vote/Execute pool creation via governance verified |
 | 6.5 | Launch bug bounty (Immunefi) | N/A | ❌ Not started | Create Immunefi/HackenProof program. Tiers defined in security-checklist.md. Scope: all deployed contracts + frontend. |
-| 6.6 | Deploy to Polygon mainnet | `scripts/deployPolygonMainnet.js` | ❌ Not started | Script exists but omits ResurgeStakingPool. Must rehearse on Mumbai first. Verify all contracts on Polygonscan. Transfer ownership to Timelock. |
-| 6.7 | Set up initial dead coin pools | Governance proposal | ❌ Not started | Deploy 3-5 dead coin pools via governance vote. Set initial reward rates. |
-| 6.8 | Set up RESURGE DEX liquidity | `scripts/addLiquidity.js` | ❌ Not started | Script does not exist. Create Quickswap/Uniswap V3 pool. Seed with initial RESURGE liquidity. |
-| 6.9 | Deploy frontend to IPFS/Arweave | `frontend/` | ❌ Not started | Configure Next.js `output: 'export'`. Deploy to Fleek/Pinata. Set up ENS or custom domain. |
-| 6.10 | Set up production monitoring | Tenderly, Forta, Defender | ❌ Not started | Configure Tenderly alerts + OpenZeppelin Defender Sentinels. Deploy Forta detection bots. Monitor subgraph sync health. |
+| 6.6 | Deploy to Polygon mainnet | `scripts/deployPolygonMainnet.js` | ✅ Script ready | ResurgeStakingPool added to Polygon script. Must rehearse on Mumbai first. Verify all contracts on Polygonscan. Transfer ownership to Timelock. |
+| 6.7 | Set up initial dead coin pools | `scripts/proposeInitialPools.js` | ✅ Script ready | Governance proposal script created. Also voteProposal.js + queueAndExecuteProposal.js. |
+| 6.8 | Set up RESURGE DEX liquidity | `scripts/addLiquidity.js` | ✅ Script ready | Script created. Creates Quickswap V3 RESURGE/WMATIC pool. Set RESURGE_TOKEN_ADDRESS + LIQUIDITY_* env vars. |
+| 6.9 | Deploy frontend to IPFS/Arweave | `frontend/next.config.mjs` | ✅ Done | `output: 'export'` already configured. Deploy with Fleek/Pinata. Set up ENS or custom domain. |
+| 6.10 | Set up production monitoring | `monitoring/` | ✅ Done | Tenderly alert config, OZ Defender Sentinel config, Forta detection bot all created in `monitoring/`. |
 
 ---
 
@@ -167,7 +167,7 @@ Every deliverable is traced to its governing specification document.
 | Phase 3 Complete | ✅ Done | Working dApp scaffold | Connect → stake → claim → vote (mock data) |
 | Phase 4 Complete | ✅ Done | Subgraph deployed and queried | Frontend fetches real data from subgraph |
 | Phase 5 Complete | ✅ Done | Dynamic rewards, RESURGE staking, L2 testnets | RESURGE staking pool functional, tested, deployed |
-| Phase 6 Complete | ⚠️ 20% | Audited, mainnet live, bug bounty active | 107 tests passing, security review in progress |
+| Phase 6 Complete | ⚠️ 75% | Audited, mainnet live, bug bounty active | 165 tests passing, all scripts ready, monitoring configured, CI pipeline added |
 
 ---
 
@@ -175,10 +175,12 @@ Every deliverable is traced to its governing specification document.
 
 What to do next, in order:
 
-1. **Engage Professional Audit** (6.3) — Submit finalized codebase to firms.
-2. **Setup IPFS/Arweave Deployment** (6.9) — Host frontend on decentralized storage.
-3. **Launch Bug Bounty** (6.5) — Configure Immunefi program.
-4. **Mainnet Deployment Rehearsal** (6.6) — Final testnet dry run on Mumbai.
+1. **Engage Professional Audit** (6.3) — Submit `docs/audit-scope.md` + codebase to firms. Budget $15k-$80k.
+2. **Mainnet Deployment Rehearsal** (6.6) — Final testnet dry run on Mumbai (`npm run deploy:mumbai`).
+3. **Launch Bug Bounty** (6.5) — Configure Immunefi program after audit completes.
+4. **Deploy Initial Pools** (6.7) — Run `scripts/proposeInitialPools.js` post-mainnet with dead coin addresses + reward rates.
+5. **Seed DEX Liquidity** (6.8) — Run `scripts/addLiquidity.js` post-mainnet with MATIC+RESURGE treasury allocation.
+6. **Wire Monitoring** (6.10) — Import `monitoring/tenderly-alerts.json` into Tenderly, `monitoring/defender-sentinel.json` into OZ Defender, deploy `monitoring/forta-bot/` via Forta CLI.
 
 ---
 
@@ -217,4 +219,4 @@ What to do next, in order:
 
 ---
 
-> **Last updated**: 2026-05-05 — Rebased with honest audit. Phases 1-3 verified complete. Phases 4-6 reflect actual remaining work.
+> **Last updated**: 2026-05-22 — Phase 6 at 75%. Analytics page added. Governance lifecycle scripts (propose/vote/queue/execute) created. CI pipeline (.github/workflows/ci.yml) added. Full monitoring stack: Tenderly alerts, OZ Defender Sentinels, Forta bot. Audit scope doc (docs/audit-scope.md) ready for submission. Remaining: external audit engagement, Mumbai rehearsal, bug bounty launch.

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "./utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -31,8 +31,8 @@ contract DeadCoinStakingPool is
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
     
-    IERC20Upgradeable public deadCoin;
-    IERC20Upgradeable public resurgenceToken;
+    IERC20 public deadCoin;
+    IERC20 public resurgenceToken;
     address public rewardDistributor;
     address public stakingPoolManager;
 
@@ -76,18 +76,17 @@ contract DeadCoinStakingPool is
         __AccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
-        __UUPSUpgradeable_init();
-
-        deadCoin = IERC20Upgradeable(_deadCoinAddress);
-        resurgenceToken = IERC20Upgradeable(_resurgenceTokenAddress);
+        deadCoin = IERC20(_deadCoinAddress);
+        resurgenceToken = IERC20(_resurgenceTokenAddress);
         rewardDistributor = _rewardDistributorAddress;
         stakingPoolManager = _stakingPoolManagerAddress;
         
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
         _grantRole(EMERGENCY_PAUSER, _timelock);
-        
+
         _grantRole(TIMELOCK_ROLE, _stakingPoolManagerAddress);
+        _grantRole(EMERGENCY_PAUSER, _stakingPoolManagerAddress);
         
         lastUpdateTime = block.timestamp;
     }
@@ -224,7 +223,7 @@ contract DeadCoinStakingPool is
     }
 
     /// @notice Unpauses staking and reward accrual
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyRole(TIMELOCK_ROLE) {
         _unpause();
     }
 

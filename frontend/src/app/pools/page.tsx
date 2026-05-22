@@ -1,12 +1,17 @@
 'use client';
 import { useAccount } from 'wagmi';
-import { useState, useEffect } from 'react';
+import { useReadContracts } from 'wagmi';
+import { useState, useEffect, useMemo } from 'react';
 import { PoolInfo } from '@/types';
 import PoolCard from '@/components/PoolCard';
 import StakeModal from '@/components/StakeModal';
 import UnstakeModal from '@/components/UnstakeModal';
 import ClaimModal from '@/components/ClaimModal';
-import { fetchPoolsWithUserPosition, SUBGRAPH_URL, type SubgraphPool } from '@/lib/graphql';
+import { LoadingSpinner } from '@/components/StateComponents';
+import { useErc20Balance } from '@/hooks/useTokenData';
+import { ABIS } from '@/lib/abis';
+import { formatUSD } from '@/lib/utils';
+import { fetchPoolsWithUserPosition } from '@/lib/graphql';
 
 export default function PoolsPage() {
   const { address, isConnected } = useAccount();
@@ -17,10 +22,6 @@ export default function PoolsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!SUBGRAPH_URL) {
-      setLoading(false);
-      return;
-    }
     (async () => {
       const subgraphData = await fetchPoolsWithUserPosition(address || '');
       if (subgraphData) {
@@ -28,18 +29,50 @@ export default function PoolsPage() {
           address: p.poolAddress,
           deadCoinAddress: p.deadCoinToken,
           deadCoinName: p.deadCoinToken.slice(0, 10),
-          deadCoinSymbol: '???',
+          deadCoinSymbol: '',
           stakedAmount: BigInt(p.position?.stakedAmount || '0'),
           totalStaked: BigInt(p.totalStaked),
           rewardRate: BigInt(p.rewardRatePerSecond),
           userRewards: BigInt(p.position?.unclaimedRewards || '0'),
           tvl: Number(BigInt(p.totalStaked) / BigInt(1e18)),
           apr: Number(BigInt(p.rewardRatePerSecond) * 365n * 86400n) / Number(BigInt(p.totalStaked || 1n)) * 100,
+          stakerCount: Number(p.stakerCount || '0'),
+          createdAt: p.createdAt || '',
         })));
       }
       setLoading(false);
     })();
   }, [address]);
+
+  const deadCoinAddresses = useMemo(
+    () => pools.map(p => p.deadCoinAddress as `0x${string}`).filter(Boolean),
+    [pools]
+  );
+
+  const { data: symbolResults } = useReadContracts({
+    contracts: deadCoinAddresses.map(addr => ({
+      abi: ABIS.Erc20,
+      address: addr,
+      functionName: 'symbol',
+    })),
+    query: { enabled: deadCoinAddresses.length > 0 },
+  });
+
+  const poolsWithSymbols = useMemo(() =>
+    pools.map((pool, i) => ({
+      ...pool,
+      deadCoinSymbol: (symbolResults?.[i]?.result as string) || '???',
+    })),
+    [pools, symbolResults]
+  );
+
+  const totalTVL = useMemo(() =>
+    poolsWithSymbols.reduce((sum, p) => sum + p.tvl, 0),
+    [poolsWithSymbols]
+  );
+
+  const selectedDeadCoinAddress = (stakePool || unstakePool)?.deadCoinAddress as `0x${string}` | undefined;
+  const { data: selectedBalance } = useErc20Balance(selectedDeadCoinAddress, address as `0x${string}`);
 
   if (!isConnected) {
     return (
@@ -52,22 +85,48 @@ export default function PoolsPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-20">
-        <h1 className="text-3xl font-bold mb-4">Staking Pools</h1>
-        <div className="animate-pulse space-y-4">
-          <div className="h-24 bg-gray-800 rounded-xl"></div>
-          <div className="h-24 bg-gray-800 rounded-xl"></div>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold mb-6">Staking Pools</h1>
+        <LoadingSpinner label="Loading pools..." />
       </div>
     );
   }
 
-  const displayPools = pools.length > 0 ? pools : [];
+  const displayPools = poolsWithSymbols.length > 0 ? poolsWithSymbols : [];
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Staking Pools</h1>
-      <p className="text-gray-400 mb-8">Stake abandoned ERC-20 tokens and earn RESURGE rewards.</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Staking Pools</h1>
+          <p className="text-gray-400 mt-1">Stake abandoned ERC-20 tokens and earn RESURGE rewards.</p>
+        </div>
+        {displayPools.length > 0 && (
+          <div className="text-right">
+            <p className="text-2xl font-bold text-blue-400">{formatUSD(totalTVL)}</p>
+            <p className="text-sm text-gray-400">Total TVL</p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
+          <p className="text-xl font-bold text-white">{displayPools.length}</p>
+          <p className="text-xs text-gray-400 mt-1">Total Pools</p>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
+          <p className="text-xl font-bold text-white">{displayPools.reduce((s, p) => s + p.stakerCount, 0)}</p>
+          <p className="text-xs text-gray-400 mt-1">Total Stakers</p>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
+          <p className="text-xl font-bold text-green-400">{displayPools.filter(p => p.stakedAmount > 0n).length}</p>
+          <p className="text-xs text-gray-400 mt-1">Your Pools</p>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
+          <p className="text-xl font-bold text-blue-400">{displayPools.filter(p => p.apr > 0).length}</p>
+          <p className="text-xs text-gray-400 mt-1">Active Rewards</p>
+        </div>
+      </div>
 
       {displayPools.length === 0 ? (
         <div className="text-center py-12 bg-gray-800 rounded-xl border border-gray-700">
@@ -94,7 +153,7 @@ export default function PoolsPage() {
           onClose={() => setStakePool(null)}
           poolAddress={stakePool.address as `0x${string}`}
           deadCoinAddress={stakePool.deadCoinAddress as `0x${string}`}
-          userBalance={100000n * 10n ** 18n}
+          userBalance={(selectedBalance as bigint) || 0n}
           userStaked={stakePool.stakedAmount}
           tokenSymbol={stakePool.deadCoinSymbol}
         />

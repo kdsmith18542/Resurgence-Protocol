@@ -14,9 +14,14 @@ export function useGovernance() {
     { abi: ABIS.ResurgenceGovernance, address: govAddress, functionName: 'proposalThreshold' },
   ] as const;
 
-  const result = useReadContracts({ contracts, query: { enabled: !!govAddress } });
+  const { data } = useReadContracts({ contracts, query: { enabled: !!govAddress } });
 
-  return { govAddress, ...result };
+  return {
+    govAddress,
+    votingDelay: data?.[0]?.result,
+    votingPeriod: data?.[1]?.result,
+    proposalThreshold: data?.[2]?.result,
+  };
 }
 
 export function useProposal(proposalId: bigint) {

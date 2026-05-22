@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -83,7 +83,6 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
 
         __AccessControl_init();
         __Pausable_init();
-        __UUPSUpgradeable_init();
 
         resurgenceTokenAddress = _resurgenceTokenAddress;
         rewardDistributorAddress = _rewardDistributorAddress;
@@ -241,7 +240,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
                 require(poolAddress != address(0), "Pool not found");
                 // Pull tokens from user to this manager, approve pool, then call stakeFor
                 IDeadCoinStakingPool(poolAddress);
-                IERC20Upgradeable deadCoin = IERC20Upgradeable(_deadCoinAddresses[i]);
+                IERC20 deadCoin = IERC20(_deadCoinAddresses[i]);
                 deadCoin.transferFrom(msg.sender, address(this), _amounts[i]);
                 deadCoin.approve(poolAddress, _amounts[i]);
                 (bool success, ) = poolAddress.call(
@@ -349,6 +348,12 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
                 emit RewardRateUpdated(supportedDeadCoins[i], dynamicRate);
             }
         }
+    }
+
+    /// @notice Returns all supported dead coin addresses as an array
+    /// @return Array of all registered dead coin addresses
+    function getAllSupportedDeadCoins() public view returns (address[] memory) {
+        return supportedDeadCoins;
     }
 
     /// @notice Pauses the entire manager

@@ -9,6 +9,8 @@ export interface PoolInfo {
   userRewards: bigint;
   tvl: number;
   apr: number;
+  stakerCount: number;
+  createdAt: string;
 }
 
 export interface ProposalInfo {

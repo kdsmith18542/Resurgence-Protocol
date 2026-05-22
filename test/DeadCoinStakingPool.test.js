@@ -280,21 +280,21 @@ describe("DeadCoinStakingPool (Upgradeable)", function () {
     it("Should prevent staking when paused", async function () {
       await pool.connect(timelock).pause();
       await expect(pool.connect(user).stake(STAKE_AMOUNT))
-        .to.be.revertedWith("Pausable: paused");
+        .to.be.revertedWithCustomError(pool, "EnforcedPause");
     });
 
     it("Should prevent unstaking when paused", async function () {
       await setupStakedUser();
       await pool.connect(timelock).pause();
       await expect(pool.connect(user).unstake(STAKE_AMOUNT))
-        .to.be.revertedWith("Pausable: paused");
+        .to.be.revertedWithCustomError(pool, "EnforcedPause");
     });
 
     it("Should prevent claiming rewards when paused", async function () {
       await setupStakedUser();
       await pool.connect(timelock).pause();
       await expect(pool.connect(user).claimRewards())
-        .to.be.revertedWith("Pausable: paused");
+        .to.be.revertedWithCustomError(pool, "EnforcedPause");
     });
 
     it("Should allow operations after unpause", async function () {

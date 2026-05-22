@@ -1,0 +1,6 @@
+{
+  "site": {
+    "buildCommand": "npm run build && node scripts/postbuild-ipfs.mjs",
+    "publishDirectory": "out"
+  }
+}

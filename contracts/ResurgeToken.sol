@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUp
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20CappedUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -45,7 +46,6 @@ contract ResurgeToken is
         __ERC20Votes_init();
         __ERC20Capped_init(cap);
         __AccessControl_init();
-        __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
         _grantRole(MINTER_ROLE, initialAdmin);
@@ -78,32 +78,20 @@ contract ResurgeToken is
 
     // The following functions are overrides required by Solidity for multiple inheritance.
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount)
+    function _update(address from, address to, uint256 amount)
         internal
-        override(ERC20Upgradeable, ERC20PausableUpgradeable)
+        override(ERC20Upgradeable, ERC20PausableUpgradeable, ERC20VotesUpgradeable, ERC20CappedUpgradeable)
     {
-        super._beforeTokenTransfer(from, to, amount);
+        super._update(from, to, amount);
     }
 
-    function _afterTokenTransfer(address from, address to, uint256 amount)
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+    function nonces(address owner)
+        public
+        view
+        override(ERC20PermitUpgradeable, NoncesUpgradeable)
+        returns (uint256)
     {
-        super._afterTokenTransfer(from, to, amount);
-    }
-
-    function _burn(address account, uint256 amount)
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
-    {
-        super._burn(account, amount);
-    }
-
-    function _mint(address account, uint256 amount)
-        internal
-        override(ERC20Upgradeable, ERC20CappedUpgradeable, ERC20VotesUpgradeable)
-    {
-        super._mint(account, amount);
+        return super.nonces(owner);
     }
 
     /**

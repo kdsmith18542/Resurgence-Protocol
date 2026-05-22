@@ -32,6 +32,7 @@ const DeadCoinStakingPoolABI_input = [
   {"inputs":[{"internalType":"bytes32","name":"role","type":"bytes32"},{"internalType":"address","name":"account","type":"address"}],"name":"revokeRole","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"uint256","name":"_newRatePerSecond","type":"uint256"}],"name":"setRewardRate","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"stake","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"claimRewards","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[],"name":"stakingPoolManager","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"totalStakedSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -108,7 +109,15 @@ export const ABIS = {
     {"type":"function","name":"DEFAULT_ADMIN_ROLE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},
     {"type":"function","name":"cap","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},
     {"type":"function","name":"nonces","inputs":[{"name":"owner","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},
-    {"type":"function","name":"DOMAIN_SEPARATOR","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"}
+    {"type":"function","name":"DOMAIN_SEPARATOR","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},
+    {"type":"function","name":"pause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"unpause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"paused","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+    {"type":"function","name":"hasRole","inputs":[{"name":"role","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+    {"type":"function","name":"PAUSER_ROLE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},
+    {"type":"function","name":"DEFAULT_ADMIN_ROLE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},
+    {"type":"function","name":"TIMELOCK_ROLE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},
+    {"type":"function","name":"EMERGENCY_PAUSER","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},
   ] as const,
   DeadCoinStakingPool: DeadCoinStakingPoolABI_input,
   ResurgenceGovernance: ResurgenceGovernanceABI_input,
@@ -129,7 +138,17 @@ export const ABIS = {
     {"type":"function","name":"rewardDistributorAddress","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},
     {"type":"function","name":"addStakingPool","inputs":[{"name":"_deadCoinAddress","type":"address","internalType":"address"},{"name":"_initialRewardRatePerSecond","type":"uint256","internalType":"uint256"},{"name":"_timelock","type":"address","internalType":"address"}],"outputs":[{"name":"newPoolAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},
     {"type":"function","name":"setRewardRate","inputs":[{"name":"_deadCoinAddress","type":"address","internalType":"address"},{"name":"_newRatePerSecond","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
-    {"type":"function","name":"removeStakingPool","inputs":[{"name":"_deadCoinAddress","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"}
+    {"type":"function","name":"removeStakingPool","inputs":[{"name":"_deadCoinAddress","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"pause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"unpause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"paused","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+    {"type":"function","name":"hasRole","inputs":[{"name":"role","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+  ] as const,
+  Erc20: [
+    {"type":"function","name":"balanceOf","inputs":[{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},
+    {"type":"function","name":"symbol","inputs":[],"outputs":[{"name":"","type":"string","internalType":"string"}],"stateMutability":"view"},
+    {"type":"function","name":"decimals","inputs":[],"outputs":[{"name":"","type":"uint8","internalType":"uint8"}],"stateMutability":"view"},
+    {"type":"function","name":"name","inputs":[],"outputs":[{"name":"","type":"string","internalType":"string"}],"stateMutability":"view"},
   ] as const,
   RewardDistributor: [
     {"type":"function","name":"authorizeStakingPool","inputs":[{"name":"_stakingPool","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},
@@ -138,6 +157,10 @@ export const ABIS = {
     {"type":"function","name":"authorizedStakingPools","inputs":[{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
     {"type":"function","name":"resurgenceToken","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},
     {"type":"function","name":"maxMintSupply","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},
-    {"type":"function","name":"totalResurgeMinted","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"}
+    {"type":"function","name":"totalResurgeMinted","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},
+    {"type":"function","name":"pause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"unpause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"paused","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+    {"type":"function","name":"hasRole","inputs":[{"name":"role","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
   ] as const
 } as const;

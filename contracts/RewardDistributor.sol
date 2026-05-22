@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./ResurgeToken.sol";
@@ -73,7 +73,6 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         
         __AccessControl_init();
         __Pausable_init();
-        __UUPSUpgradeable_init();
 
         resurgenceToken = ResurgeToken(_resurgenceTokenAddress);
         maxMintSupply = _initialMaxMintSupply;

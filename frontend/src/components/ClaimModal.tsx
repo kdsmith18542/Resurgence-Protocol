@@ -1,6 +1,8 @@
 'use client';
+import { useSimulateContract, useGasPrice } from 'wagmi';
 import { useClaimRewards } from '@/hooks/useStakingActions';
 import { formatTokenAmount } from '@/lib/utils';
+import { ABIS } from '@/lib/abis';
 
 interface ClaimModalProps {
   isOpen: boolean;
@@ -11,6 +13,17 @@ interface ClaimModalProps {
 
 export default function ClaimModal({ isOpen, onClose, poolAddress, pendingRewards }: ClaimModalProps) {
   const { claimRewards, isPending } = useClaimRewards(poolAddress);
+
+  const { data: simulation } = useSimulateContract({
+    abi: ABIS.DeadCoinStakingPool,
+    address: poolAddress,
+    functionName: 'claimRewards',
+    query: { enabled: pendingRewards > 0n },
+  });
+  const { data: gasPrice } = useGasPrice();
+  const estimatedCostMatic = simulation?.request?.gas && gasPrice
+    ? (Number(simulation.request.gas * gasPrice) / 1e18).toFixed(6)
+    : null;
 
   if (!isOpen) return null;
 
@@ -28,6 +41,13 @@ export default function ClaimModal({ isOpen, onClose, poolAddress, pendingReward
           <p className="text-gray-400 text-sm mb-1">Pending RESURGE Rewards</p>
           <p className="text-3xl font-bold text-yellow-400">{formatTokenAmount(pendingRewards)}</p>
         </div>
+
+        {estimatedCostMatic && (
+          <div className="flex justify-between text-xs text-gray-400 mb-3 px-1">
+            <span>Estimated Gas</span>
+            <span>{estimatedCostMatic} MATIC</span>
+          </div>
+        )}
 
         <button
           onClick={handleClaim}

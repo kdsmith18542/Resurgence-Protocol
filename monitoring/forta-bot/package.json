@@ -1,0 +1,20 @@
+{
+  "name": "resurgence-protocol-forta-bot",
+  "displayName": "Resurgence Protocol Security Bot",
+  "version": "1.0.0",
+  "description": "Forta detection bot for Resurgence Protocol — monitors for reentrancy attacks, unauthorized upgrades, large claims, and unexpected role changes.",
+  "longDescription": "Monitors all Resurgence Protocol contracts on Polygon for critical security events: reentrancy attacks, UUPS proxy upgrades, admin role grants not originating from the Timelock, and abnormally large reward claims (>100k RESURGE).",
+  "chainIds": [137],
+  "scripts": {
+    "start": "npm run start:dev",
+    "start:dev": "nodemon --watch src --ext js,json --exec \"node -e 'const f=require(\\\"./index\\\"); console.log(\\\"Bot loaded\\\");'\"",
+    "test": "jest --detectOpenHandles"
+  },
+  "dependencies": {
+    "forta-agent": "^0.1.48"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "nodemon": "^3.0.0"
+  }
+}

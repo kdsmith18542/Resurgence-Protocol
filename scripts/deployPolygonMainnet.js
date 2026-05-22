@@ -71,8 +71,28 @@ async function main() {
   console.log("   StakingPoolManager:", managerAddress);
   await verify(managerAddress, []);
 
-  // 6. Deploy ResurgenceGovernance
-  console.log("\n6. Deploying ResurgenceGovernance...");
+  // 6. Deploy ResurgeStakingPool
+  console.log("\n6. Deploying ResurgeStakingPool...");
+  const INITIAL_RESURGE_REWARD_RATE = ethers.parseUnits(process.env.RESURGE_REWARD_RATE || "1", 18); // 1 RESURGE/sec default
+  const ResurgeStakingPool = await ethers.getContractFactory("ResurgeStakingPool");
+  const resurgePool = await upgrades.deployProxy(ResurgeStakingPool, [
+    tokenAddress,
+    distributorAddress,
+    timelockAddress,
+    INITIAL_RESURGE_REWARD_RATE,
+  ], { kind: "uups", initializer: "initialize" });
+  await resurgePool.waitForDeployment();
+  const resurgePoolAddress = await resurgePool.getAddress();
+  console.log("   ResurgeStakingPool:", resurgePoolAddress);
+  await verify(resurgePoolAddress, []);
+
+  // Authorize ResurgeStakingPool in RewardDistributor
+  const distributorContract = await ethers.getContractAt("RewardDistributor", distributorAddress);
+  await distributorContract.authorizeStakingPool(resurgePoolAddress);
+  console.log("   ResurgeStakingPool authorized in RewardDistributor");
+
+  // 7. Deploy ResurgenceGovernance
+  console.log("\n7. Deploying ResurgenceGovernance...");
   const Governance = await ethers.getContractFactory("ResurgenceGovernance");
   const governance = await Governance.deploy(
     tokenAddress,
@@ -87,8 +107,8 @@ async function main() {
   console.log("   ResurgenceGovernance:", governanceAddress);
   await verify(governanceAddress, [tokenAddress, timelockAddress, VOTING_DELAY, VOTING_PERIOD, QUORUM_PERCENTAGE, PROPOSAL_THRESHOLD]);
 
-  // 7. Transfer roles to Timelock
-  console.log("\n7. Transferring roles to Timelock...");
+  // 8. Transfer roles to Timelock
+  console.log("\n8. Transferring roles to Timelock...");
   const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
   const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
   const CANCELLER_ROLE = await timelock.CANCELLER_ROLE();
@@ -114,12 +134,13 @@ async function main() {
   await token.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
   console.log("   Token roles transferred");
 
-  // 8. Output deployment summary
+  // 9. Output deployment summary
   console.log("\n========== POLYGON MAINNET DEPLOYMENT COMPLETE ==========");
   console.log(`NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS=${tokenAddress}`);
   console.log(`NEXT_PUBLIC_TIMELOCK_ADDRESS=${timelockAddress}`);
   console.log(`NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS=${distributorAddress}`);
   console.log(`NEXT_PUBLIC_STAKING_POOL_MANAGER_ADDRESS=${managerAddress}`);
+  console.log(`NEXT_PUBLIC_RESURGE_STAKING_POOL_ADDRESS=${resurgePoolAddress}`);
   console.log(`NEXT_PUBLIC_GOVERNANCE_ADDRESS=${governanceAddress}`);
   console.log("==========================================================\n");
 }

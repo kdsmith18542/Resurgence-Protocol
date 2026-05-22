@@ -1,7 +1,9 @@
 'use client';
 import { useState } from 'react';
+import { useSimulateContract, useGasPrice } from 'wagmi';
 import { useUnstake } from '@/hooks/useStakingActions';
 import { formatTokenAmount } from '@/lib/utils';
+import { ABIS } from '@/lib/abis';
 
 interface UnstakeModalProps {
   isOpen: boolean;
@@ -13,6 +15,7 @@ interface UnstakeModalProps {
 
 export default function UnstakeModal({ isOpen, onClose, poolAddress, stakedAmount, tokenSymbol }: UnstakeModalProps) {
   const [amount, setAmount] = useState('');
+  const [error, setError] = useState('');
   const { unstake, isPending } = useUnstake(poolAddress);
 
   if (!isOpen) return null;
@@ -20,12 +23,44 @@ export default function UnstakeModal({ isOpen, onClose, poolAddress, stakedAmoun
   const parsedAmount = amount ? BigInt(Math.floor(parseFloat(amount) * 1e18)) : 0n;
   const exceedsBalance = parsedAmount > stakedAmount;
 
-  const handleMax = () => setAmount(formatTokenAmount(stakedAmount));
+  const { data: simulation } = useSimulateContract({
+    abi: ABIS.DeadCoinStakingPool,
+    address: poolAddress,
+    functionName: 'unstake',
+    args: [parsedAmount],
+    query: { enabled: parsedAmount > 0n && !exceedsBalance },
+  });
+  const { data: gasPrice } = useGasPrice();
+  const estimatedCostMatic = simulation?.request?.gas && gasPrice
+    ? (Number(simulation.request.gas * gasPrice) / 1e18).toFixed(6)
+    : null;
+
+  const handleMax = () => {
+    setAmount(formatTokenAmount(stakedAmount));
+    setError('');
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAmount(e.target.value);
+    setError('');
+  };
 
   const handleAction = async () => {
-    if (exceedsBalance || parsedAmount === 0n) return;
-    await unstake(parsedAmount);
-    onClose();
+    setError('');
+    if (parsedAmount === 0n) {
+      setError('Enter an amount to unstake.');
+      return;
+    }
+    if (exceedsBalance) {
+      setError('Amount exceeds your staked balance.');
+      return;
+    }
+    try {
+      await unstake(parsedAmount);
+      onClose();
+    } catch (e: any) {
+      setError(e?.shortMessage || e?.message || 'Transaction failed.');
+    }
   };
 
   return (
@@ -41,14 +76,27 @@ export default function UnstakeModal({ isOpen, onClose, poolAddress, stakedAmoun
             <input
               type="number"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={handleChange}
               placeholder="0.0"
               className="flex-1 bg-transparent text-2xl text-white font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <button onClick={handleMax} className="text-sm text-blue-400 hover:text-blue-300 font-medium">MAX</button>
           </div>
-          {exceedsBalance && <p className="text-red-400 text-xs mt-1">Exceeds staked balance</p>}
+          {exceedsBalance && <p className="text-red-400 text-xs mt-1">Exceeds staked balance.</p>}
         </div>
+
+        {error && (
+          <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-3 mb-3">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
+        {estimatedCostMatic && (
+          <div className="flex justify-between text-xs text-gray-400 mb-3 px-1">
+            <span>Estimated Gas</span>
+            <span>{estimatedCostMatic} MATIC</span>
+          </div>
+        )}
 
         <button
           onClick={handleAction}

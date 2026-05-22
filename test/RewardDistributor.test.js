@@ -90,7 +90,7 @@ describe("RewardDistributor (Upgradeable)", function () {
     it("Should enforce pause", async function () {
       await rewardDistributor.connect(timelock).pause();
       await expect(rewardDistributor.connect(stakingPool1).mintAndDistribute(addr1.address, 100))
-        .to.be.revertedWith("Pausable: paused");
+        .to.be.revertedWithCustomError(rewardDistributor, "EnforcedPause");
     });
   });
 

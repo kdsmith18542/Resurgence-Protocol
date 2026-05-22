@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Web3Provider from "@/providers/Web3Provider";
 import Header from "@/components/Header";
+import IpfsPathHandler from "@/components/IpfsPathHandler";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-900 text-white min-h-screen`}>
+        <IpfsPathHandler />
         <Web3Provider>
           <Header />
           <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>

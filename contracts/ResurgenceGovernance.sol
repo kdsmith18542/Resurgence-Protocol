@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFractio
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/governance/IGovernor.sol";
-import "@openzeppelin/contracts/governance/extensions/IGovernorTimelock.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./ResurgenceTimelockController.sol";
 import "./ResurgeToken.sol";
@@ -45,8 +44,8 @@ contract ResurgenceGovernance is
     )
         Governor("ResurgenceGovernor")
         GovernorSettings(
-            _votingDelay,
-            _votingPeriod,
+            uint48(_votingDelay),
+            uint32(_votingPeriod),
             _proposalThreshold
         )
         GovernorVotes(IVotes(address(_resurgeToken)))
@@ -57,17 +56,17 @@ contract ResurgenceGovernance is
     // The following functions are overrides required by Solidity
 
     /// @notice Returns the current voting delay
-    function votingDelay() public view override(IGovernor, GovernorSettings) returns (uint256) {
+    function votingDelay() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.votingDelay();
     }
 
     /// @notice Returns the current voting period
-    function votingPeriod() public view override(IGovernor, GovernorSettings) returns (uint256) {
+    function votingPeriod() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.votingPeriod();
     }
 
     /// @notice Returns the quorum required for a specific block number
-    function quorum(uint256 blockNumber) public view override(IGovernor, GovernorVotesQuorumFraction) returns (uint256) {
+    function quorum(uint256 blockNumber) public view override(Governor, GovernorVotesQuorumFraction) returns (uint256) {
         return super.quorum(blockNumber);
     }
 
@@ -92,21 +91,21 @@ contract ResurgenceGovernance is
         uint256[] memory values,
         bytes[] memory calldatas,
         string memory description
-    ) public override(Governor, IGovernor) returns (uint256) {
+    ) public override(Governor) returns (uint256) {
         uint256 proposalId = super.propose(targets, values, calldatas, description);
         _latestProposalId = proposalId;
         return proposalId;
     }
 
     /// @notice Executes a successful and queued proposal
-    function _execute(
+    function _executeOperations(
         uint256 proposalId,
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
     ) internal override(Governor, GovernorTimelockControl) {
-        super._execute(proposalId, targets, values, calldatas, descriptionHash);
+        super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     /// @notice Cancels a proposal
@@ -128,7 +127,7 @@ contract ResurgenceGovernance is
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -138,7 +137,7 @@ contract ResurgenceGovernance is
     function getVotes(address account, uint256 blockNumber)
         public
         view
-        override(Governor, IGovernor)
+        override(Governor)
         returns (uint256)
     {
         return super.getVotes(account, blockNumber);
@@ -154,10 +153,10 @@ contract ResurgenceGovernance is
         uint256 proposalId,
         address account,
         uint8 support,
-        uint256 weight,
+        uint256 totalWeight,
         bytes memory params
-    ) internal override(Governor, GovernorCountingSimple) {
-        super._countVote(proposalId, account, support, weight, params);
+    ) internal override(Governor, GovernorCountingSimple) returns (uint256) {
+        return super._countVote(proposalId, account, support, totalWeight, params);
     }
 
     /// @dev Internal function to check if quorum is reached
@@ -183,5 +182,19 @@ contract ResurgenceGovernance is
     /// @notice Returns the timelock address
     function timelock() public view override(GovernorTimelockControl) returns (address) {
         return super.timelock();
+    }
+
+    function proposalNeedsQueuing(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (bool) {
+        return super.proposalNeedsQueuing(proposalId);
+    }
+
+    function _queueOperations(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
+        return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 }

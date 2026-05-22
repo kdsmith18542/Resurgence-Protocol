@@ -42,8 +42,8 @@ export default function PoolCard({ pool, onStake, onUnstake, onClaim }: PoolCard
           <p className="text-sm text-yellow-400 font-medium">{formatTokenAmount(pool.userRewards)} RESURGE</p>
         </div>
         <div>
-          <p className="text-xs text-gray-400">TVL</p>
-          <p className="text-sm text-white font-medium">${pool.tvl.toLocaleString()}</p>
+          <p className="text-xs text-gray-400">TVL / Stakers</p>
+          <p className="text-sm text-white font-medium">${pool.tvl.toLocaleString()} <span className="text-gray-500">|</span> {pool.stakerCount}</p>
         </div>
       </div>
 
