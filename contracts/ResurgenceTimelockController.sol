@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/governance/TimelockController.sol";
 /// @title ResurgenceTimelockController - Governance timelock for the Resurgence Protocol
 /// @notice Delays execution of governance proposals to allow user review
 /// @dev Wraps OpenZeppelin's TimelockController with the default Resurgence configuration
-/// @custom:security-contact corpse911@gmail.com
+/// @custom:security-contact grywrm1337@gmail.com
 contract ResurgenceTimelockController is TimelockController {
     // Define roles needed for the TimelockController
     // In this context, the Governor contract will be the PROPOSER and EXECUTOR.

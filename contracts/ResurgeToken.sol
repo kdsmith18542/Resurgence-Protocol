@@ -15,7 +15,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 /// @title ResurgeToken - The native governance and reward token of the Resurgence Protocol
 /// @notice ERC20 token with governance capabilities, pausable, burnable, and capped supply
 /// @dev Implements all required extensions per rpbp.txt: governance voting, permits, capped supply. UUPS Upgradeable.
-/// @custom:security-contact corpse911@gmail.com
+/// @custom:security-contact grywrm1337@gmail.com
 contract ResurgeToken is 
     Initializable, 
     ERC20Upgradeable, 

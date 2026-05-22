@@ -117,7 +117,11 @@ async function main() {
   await token.grantRole(PAUSER_ROLE, timelockAddress);
   await token.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
 
-  // 7.5. Renounce temporary deployer roles in other contracts
+  // 7.5. Grant manager TIMELOCK_ROLE on the distributor so addStakingPool can authorize/deauthorize pools
+  await distributor.grantRole(await distributor.TIMELOCK_ROLE(), managerAddress);
+  console.log("   StakingPoolManager granted TIMELOCK_ROLE on RewardDistributor");
+
+  // 7.6. Renounce temporary deployer roles in other contracts
   console.log("   Renouncing temporary deployer roles...");
   await distributor.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
   await distributor.renounceRole(await distributor.TIMELOCK_ROLE(), deployer.address);
@@ -125,6 +129,9 @@ async function main() {
   await manager.renounceRole(await manager.TIMELOCK_ROLE(), deployer.address);
   await resurgeStaking.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
   await resurgeStaking.renounceRole(await resurgeStaking.TIMELOCK_ROLE(), deployer.address);
+
+  // Renounce the deployer's admin over the Timelock itself (Timelock self-administers in OZ v5)
+  await timelock.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
 
   console.log("   Distributor granted MINTER_ROLE on token");
   console.log("   Timelock granted DEFAULT_ADMIN_ROLE and PAUSER_ROLE on token");

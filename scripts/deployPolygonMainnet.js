@@ -134,6 +134,23 @@ async function main() {
   await token.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
   console.log("   Token roles transferred");
 
+  // 8.5. Grant manager TIMELOCK_ROLE on the distributor so addStakingPool can authorize/deauthorize pools
+  await distributor.grantRole(await distributor.TIMELOCK_ROLE(), managerAddress);
+  console.log("   StakingPoolManager granted TIMELOCK_ROLE on RewardDistributor");
+
+  // 8.6. Renounce temporary deployer roles so no EOA retains admin/timelock access
+  console.log("\n8.6. Renouncing temporary deployer roles...");
+  await distributor.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  await distributor.renounceRole(await distributor.TIMELOCK_ROLE(), deployer.address);
+  await manager.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  await manager.renounceRole(await manager.TIMELOCK_ROLE(), deployer.address);
+  await resurgePool.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  await resurgePool.renounceRole(await resurgePool.TIMELOCK_ROLE(), deployer.address);
+
+  // Renounce the deployer's admin over the Timelock itself (Timelock self-administers in OZ v5)
+  await timelock.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  console.log("   Deployer roles renounced on distributor, manager, ResurgeStakingPool, and Timelock");
+
   // 9. Output deployment summary
   console.log("\n========== POLYGON MAINNET DEPLOYMENT COMPLETE ==========");
   console.log(`NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS=${tokenAddress}`);

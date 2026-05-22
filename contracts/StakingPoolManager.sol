@@ -2,8 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "./utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -32,7 +34,9 @@ interface IDeadCoinStakingPool {
 /// @title StakingPoolManager - Registry and factory for DeadCoinStakingPools
 /// @notice Manages the deployment and administration of individual dead coin staking pools
 /// @dev Governed by a Timelock controller for all critical actions. UUPS Upgradeable.
-contract StakingPoolManager is Initializable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+contract StakingPoolManager is Initializable, AccessControlUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
+    using SafeERC20 for IERC20;
+
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
     
@@ -83,6 +87,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
 
         __AccessControl_init();
         __Pausable_init();
+        __ReentrancyGuard_init();
 
         resurgenceTokenAddress = _resurgenceTokenAddress;
         rewardDistributorAddress = _rewardDistributorAddress;
@@ -231,7 +236,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
     /// @dev User must approve StakingPoolManager for each dead coin before calling. Limited to 50 pools per tx.
     /// @param _deadCoinAddresses Array of dead coin addresses to stake to
     /// @param _amounts Array of amounts to stake in each pool
-    function batchStake(address[] calldata _deadCoinAddresses, uint256[] calldata _amounts) external whenNotPaused {
+    function batchStake(address[] calldata _deadCoinAddresses, uint256[] calldata _amounts) external whenNotPaused nonReentrant {
         require(_deadCoinAddresses.length == _amounts.length, "Array length mismatch");
         require(_deadCoinAddresses.length <= 50, "Batch size too large");
         for (uint i = 0; i < _deadCoinAddresses.length; i++) {
@@ -239,10 +244,9 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
                 address poolAddress = deadCoinToPoolAddress[_deadCoinAddresses[i]];
                 require(poolAddress != address(0), "Pool not found");
                 // Pull tokens from user to this manager, approve pool, then call stakeFor
-                IDeadCoinStakingPool(poolAddress);
                 IERC20 deadCoin = IERC20(_deadCoinAddresses[i]);
-                deadCoin.transferFrom(msg.sender, address(this), _amounts[i]);
-                deadCoin.approve(poolAddress, _amounts[i]);
+                deadCoin.safeTransferFrom(msg.sender, address(this), _amounts[i]);
+                deadCoin.forceApprove(poolAddress, _amounts[i]);
                 (bool success, ) = poolAddress.call(
                     abi.encodeWithSignature("stakeFor(address,uint256)", msg.sender, _amounts[i])
                 );
@@ -253,7 +257,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
 
     /// @notice Batch-claims rewards from multiple pools for the caller
     /// @param _deadCoinAddresses Array of dead coin addresses to claim rewards from
-    function batchClaimRewards(address[] calldata _deadCoinAddresses) external whenNotPaused {
+    function batchClaimRewards(address[] calldata _deadCoinAddresses) external whenNotPaused nonReentrant {
         require(_deadCoinAddresses.length <= 50, "Batch size too large");
         for (uint i = 0; i < _deadCoinAddresses.length; i++) {
             address poolAddress = deadCoinToPoolAddress[_deadCoinAddresses[i]];
@@ -368,7 +372,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
 
     /// @dev Internal function to authorize an upgrade
     /// @param newImplementation Address of the new implementation
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(TIMELOCK_ROLE) {}
 
     /**
      * @dev Gap for future storage variables.
