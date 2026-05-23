@@ -177,13 +177,14 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         }
         
         try priceOracle.latestRoundData() returns (
-            uint80,
+            uint80 roundId,
             int256 answer,
             uint256,
             uint256 updatedAt,
-            uint80
+            uint80 answeredInRound
         ) {
             if (answer <= 0) return (0, false);
+            if (answeredInRound < roundId) return (0, false);
             if (updatedAt == 0 || block.timestamp > updatedAt + oracleStaleThreshold) {
                 // Stale data, try fallback
                 if (oracleLastPrice > 0 && block.timestamp < oracleLastUpdate + oracleStaleThreshold) {

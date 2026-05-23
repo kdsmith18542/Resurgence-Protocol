@@ -328,8 +328,8 @@ describe("DeadCoinStakingPool (Upgradeable)", function () {
     });
 
     it("Should allow upgrading ResurgeToken", async function () {
-      const ResurgeTokenV2 = await ethers.getContractFactory("ResurgeToken");
-      // owner now has DEFAULT_ADMIN_ROLE
+      // timelock holds TIMELOCK_ROLE, which now gates _authorizeUpgrade on ResurgeToken
+      const ResurgeTokenV2 = await ethers.getContractFactory("ResurgeToken", timelock);
       await upgrades.upgradeProxy(await resurgeToken.getAddress(), ResurgeTokenV2);
       expect(await resurgeToken.name()).to.equal("Resurgence Protocol");
     });

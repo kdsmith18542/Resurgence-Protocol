@@ -332,7 +332,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
 
     /// @notice Applies dynamic rate recalculation to a pool
     /// @param _deadCoinAddress The dead coin address of the pool
-    function applyDynamicRate(address _deadCoinAddress) public whenNotPaused {
+    function applyDynamicRate(address _deadCoinAddress) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
         address poolAddress = deadCoinToPoolAddress[_deadCoinAddress];
         if (poolAddress == address(0)) revert StakingPoolManager_PoolNotFound();
         
@@ -342,7 +342,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
     }
 
     /// @notice Batch applies dynamic rates to all pools
-    function applyDynamicRateAll() public whenNotPaused {
+    function applyDynamicRateAll() public onlyRole(TIMELOCK_ROLE) whenNotPaused {
         uint256 limit = supportedDeadCoins.length > 50 ? 50 : supportedDeadCoins.length;
         for (uint i = 0; i < limit; i++) {
             address poolAddress = deadCoinToPoolAddress[supportedDeadCoins[i]];

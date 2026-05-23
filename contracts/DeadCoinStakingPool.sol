@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface IRewardDistributor {
     function mintAndDistribute(address _to, uint256 _amount) external returns (bool);
+    function authorizedStakingPools(address pool) external view returns (bool);
 }
 
 // Custom errors for gas efficiency
@@ -190,19 +191,22 @@ contract DeadCoinStakingPool is
         }
     }
 
-    /// @notice Claims rewards and auto-stakes them into a RESURGE staking pool
-    /// @param _resurgeStakingPool Address of the RESURGE staking pool
+    /// @notice Claims rewards and auto-stakes them into an authorized RESURGE staking pool
+    /// @param _resurgeStakingPool Address of the RESURGE staking pool — must be whitelisted in RewardDistributor
     function claimAndRestakeTo(address _resurgeStakingPool) public whenNotPaused updateReward(msg.sender) nonReentrant {
+        // Only allow approved pools — prevents approval drain via malicious stakeFor() implementation
+        if (!IRewardDistributor(rewardDistributor).authorizedStakingPools(_resurgeStakingPool))
+            revert InvalidAmount();
+
         uint256 rewards = userRewards[msg.sender];
         if (rewards == 0) revert InvalidAmount();
-        
+
         userRewards[msg.sender] = 0;
         bool success = IRewardDistributor(rewardDistributor).mintAndDistribute(address(this), rewards);
         if (!success) revert RewardMintingFailed();
-        
+
         emit RewardsClaimed(msg.sender, rewards);
-        
-        // Approve and stake into RESURGE pool
+
         resurgenceToken.approve(_resurgeStakingPool, rewards);
         (success, ) = _resurgeStakingPool.call(
             abi.encodeWithSignature("stakeFor(address,uint256)", msg.sender, rewards)

@@ -45,10 +45,12 @@ async function main() {
   console.log("   RewardDistributor proxy:", await rewardDistributor.getAddress());
   console.log("");
 
-  // 4. Grant MINTER_ROLE to RewardDistributor
-  console.log("4. Granting MINTER_ROLE to RewardDistributor...");
+  // 4. Grant MINTER_ROLE to RewardDistributor and TIMELOCK_ROLE to TimelockController
+  console.log("4. Granting MINTER_ROLE to RewardDistributor and TIMELOCK_ROLE to Timelock...");
   const MINTER_ROLE = await resurgenceToken.MINTER_ROLE();
+  const TIMELOCK_ROLE = await resurgenceToken.TIMELOCK_ROLE();
   await resurgenceToken.grantRole(MINTER_ROLE, await rewardDistributor.getAddress());
+  await resurgenceToken.grantRole(TIMELOCK_ROLE, await timelockController.getAddress());
   console.log("   Done");
   console.log("");
 
@@ -104,7 +106,7 @@ async function main() {
   // 7. Deploy ResurgenceGovernance (not upgradeable by design)
   console.log("7. Deploying ResurgenceGovernance...");
   const ResurgenceGovernance = await hre.ethers.getContractFactory("ResurgenceGovernance");
-  const votingDelay = 1;
+  const votingDelay = 7200; // ~4 hours on Polygon (2s/block) — prevents flash-loan snapshot attacks
   const votingPeriod = 50400; // ~1 week at 12s/block
   const quorumPercentage = 4; // 4%
   const proposalThreshold = 1000n * 10n**18n; // 1000 RESURGE
@@ -136,8 +138,14 @@ async function main() {
   // 9. Transfer all admin roles to Timelock
   console.log("9. Transferring admin roles to Timelock...");
   await resurgenceToken.grantRole(DEFAULT_ADMIN_ROLE, await timelockController.getAddress());
+  // Revoke deployer's privileged roles before losing DEFAULT_ADMIN_ROLE.
+  // Without this the deployer EOA retains unconstrained minting and pause power forever.
+  const PAUSER_ROLE = await resurgenceToken.PAUSER_ROLE();
+  await resurgenceToken.revokeRole(MINTER_ROLE, deployer.address);
+  await resurgenceToken.revokeRole(PAUSER_ROLE, deployer.address);
+  await resurgenceToken.revokeRole(TIMELOCK_ROLE, deployer.address);
   await resurgenceToken.renounceRole(DEFAULT_ADMIN_ROLE, deployer.address);
-  console.log("   ResurgeToken admin -> Timelock");
+  console.log("   ResurgeToken admin -> Timelock (MINTER_ROLE + PAUSER_ROLE revoked from deployer)");
   console.log("");
 
   // 9.5. Grant manager TIMELOCK_ROLE on the distributor so addStakingPool can authorize/deauthorize pools

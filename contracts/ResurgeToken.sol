@@ -29,6 +29,7 @@ contract ResurgeToken is
 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -50,6 +51,7 @@ contract ResurgeToken is
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
         _grantRole(MINTER_ROLE, initialAdmin);
         _grantRole(PAUSER_ROLE, initialAdmin);
+        _grantRole(TIMELOCK_ROLE, initialAdmin);
     }
 
     /// @notice Pauses all token transfers - emergency function
@@ -74,7 +76,7 @@ contract ResurgeToken is
 
     /// @dev Internal function to authorize an upgrade
     /// @param newImplementation Address of the new implementation
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(TIMELOCK_ROLE) {}
 
     // The following functions are overrides required by Solidity for multiple inheritance.
 

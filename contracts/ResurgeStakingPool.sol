@@ -106,7 +106,9 @@ contract ResurgeStakingPool is
         rewardPerTokenStored = _rewardPerToken();
         lastUpdateTime = block.timestamp;
         if (_account != address(0)) {
-            userRewards[_account] = earned(_account);
+            // Store raw (unboosted) rewards — boost is applied at claim time only.
+            // Storing boosted values here would cause exponential re-boosting on each interaction.
+            userRewards[_account] = _earnedRaw(_account);
             userRewardPerTokenPaid[_account] = rewardPerTokenStored;
         }
         _;
@@ -120,14 +122,18 @@ contract ResurgeStakingPool is
             ((block.timestamp - lastUpdateTime) * rewardRatePerSecond * 1e18) / totalStakedSupply;
     }
 
-    /// @notice Calculates the total earned rewards for a user, including boost multipliers
+    /// @dev Raw accrued rewards with no boost applied. Used internally to checkpoint state.
+    function _earnedRaw(address _account) internal view returns (uint256) {
+        return userRewards[_account] +
+            (userStakedAmount[_account] * (_rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18;
+    }
+
+    /// @notice Boosted rewards for a user — for display purposes.
     /// @param _account The user address to calculate rewards for
-    /// @return The amount of RESURGE tokens earned
+    /// @return The boosted RESURGE reward amount
     function earned(address _account) public view returns (uint256) {
         uint256 boost = userBoostBps[_account] > 0 ? userBoostBps[_account] : baseBoostBps;
-        uint256 base = userRewards[_account] +
-            (userStakedAmount[_account] * (_rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18;
-        return (base * boost) / 10000;
+        return (_earnedRaw(_account) * boost) / 10000;
     }
 
     /// @notice Stakes RESURGE tokens into the pool
@@ -191,7 +197,9 @@ contract ResurgeStakingPool is
     }
 
     function claimRewards() public whenNotPaused updateReward(msg.sender) nonReentrant {
-        uint256 rewards = userRewards[msg.sender];
+        // userRewards holds raw (unboosted) amount after updateReward — apply boost here.
+        uint256 boost = userBoostBps[msg.sender] > 0 ? userBoostBps[msg.sender] : baseBoostBps;
+        uint256 rewards = (userRewards[msg.sender] * boost) / 10000;
         if (rewards > 0) {
             userRewards[msg.sender] = 0;
             bool success = RewardDistributor(rewardDistributor).mintAndDistribute(msg.sender, rewards);
@@ -201,7 +209,8 @@ contract ResurgeStakingPool is
     }
 
     function claimAndRestake() external whenNotPaused updateReward(msg.sender) nonReentrant {
-        uint256 rewards = userRewards[msg.sender];
+        uint256 boost = userBoostBps[msg.sender] > 0 ? userBoostBps[msg.sender] : baseBoostBps;
+        uint256 rewards = (userRewards[msg.sender] * boost) / 10000;
         if (rewards > 0) {
             userRewards[msg.sender] = 0;
             bool success = RewardDistributor(rewardDistributor).mintAndDistribute(address(this), rewards);
@@ -209,6 +218,8 @@ contract ResurgeStakingPool is
 
             userStakedAmount[msg.sender] += rewards;
             totalStakedSupply += rewards;
+            // Reset lock timer so compounded tokens are subject to the full lock period.
+            userStakedAt[msg.sender] = block.timestamp;
 
             emit RewardsClaimed(msg.sender, rewards);
             emit Staked(msg.sender, rewards, address(0));
