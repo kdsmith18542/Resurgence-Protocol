@@ -72,18 +72,31 @@ async function main() {
   console.log(`   Implementation: ${await stakingPoolImpl.getAddress()}`);
   console.log();
 
+  // 1.5. Deploy stub RESURGE token for spoke (ERC20Mock)
+  // Spoke pools don't mint RESURGE locally — rewards are bridged from the hub via CCIP.
+  // StakingPoolManager.initialize() requires a non-zero token address, so we deploy a
+  // lightweight mock. This can be replaced with a proper bridged token via governance upgrade.
+  let spokeResurgeToken = process.env.SPOKE_RESURGE_TOKEN_ADDRESS;
+  if (!spokeResurgeToken) {
+    console.log("1.5. Deploying stub RESURGE token (ERC20Mock) for spoke...");
+    const ERC20Mock = await hre.ethers.getContractFactory("ERC20Mock");
+    const stubToken = await ERC20Mock.deploy("RESURGE (Spoke)", "RESURGE", 0);
+    await stubToken.waitForDeployment();
+    spokeResurgeToken = await stubToken.getAddress();
+    console.log(`   Stub RESURGE: ${spokeResurgeToken}`);
+    console.log();
+  } else {
+    console.log(`1.5. Using existing spoke RESURGE token: ${spokeResurgeToken}`);
+    console.log();
+  }
+
   // 2. Deploy StakingPoolManager (UUPS proxy)
-  // Note: on spokes, StakingPoolManager does NOT hold a RewardDistributor reference.
-  // Reward minting happens on the hub. We pass a zero address placeholder for rewardDistributor.
-  // The spoke manager is governed by the hub Timelock via cross-chain governance (Phase 10.2+).
-  // For Phase 10.0 simplicity, deployer temporarily holds TIMELOCK_ROLE for initial pool setup.
+  // Reward minting happens on the hub. The spoke manager tracks staking and sends
+  // claims via CrossChainSender → CCIP → CrossChainReceiver → RewardDistributor on hub.
   console.log("2. Deploying StakingPoolManager (UUPS proxy)...");
   const StakingPoolManager = await hre.ethers.getContractFactory("StakingPoolManager");
-  // Spoke manager uses a mock/zero reward distributor — pools on spokes don't mint locally.
-  // The addStakingPool call on spokes should use a stub RewardDistributor that no-ops on authorizeStakingPool.
-  // For now, deployer address is used as a stub; governance will wire properly via upgrade.
   const stakingPoolManager = await upgrades.deployProxy(StakingPoolManager, [
-    hre.ethers.ZeroAddress,          // resurgenceToken — not needed on spoke
+    spokeResurgeToken,               // stub local token (no local minting on spoke)
     deployer.address,                // rewardDistributorAddress — stub, no minting on spoke
     await stakingPoolImpl.getAddress(),
     timelockAddress,
@@ -122,6 +135,7 @@ async function main() {
 
   console.log("=== Spoke Deployment Complete ===");
   console.log(`Network:                  ${network}`);
+  console.log(`Stub RESURGE token:       ${spokeResurgeToken}`);
   console.log(`DeadCoinStakingPool impl: ${await stakingPoolImpl.getAddress()}`);
   console.log(`StakingPoolManager:       ${await stakingPoolManager.getAddress()}`);
   console.log(`CrossChainSender:         ${await crossChainSender.getAddress()}`);

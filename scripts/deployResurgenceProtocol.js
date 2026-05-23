@@ -23,7 +23,7 @@ async function main() {
   // 2. Deploy TimelockController
   console.log("2. Deploying TimelockController...");
   const ResurgenceTimelockController = await hre.ethers.getContractFactory("ResurgenceTimelockController");
-  const minDelay = 3600; // 1 hour
+  const minDelay = parseInt(process.env.TIMELOCK_MIN_DELAY || "3600"); // default 1h; use 60 for testnet
   const proposers = [deployer.address];
   const executors = [deployer.address];
   const admin = deployer.address;
@@ -106,8 +106,8 @@ async function main() {
   // 7. Deploy ResurgenceGovernance (not upgradeable by design)
   console.log("7. Deploying ResurgenceGovernance...");
   const ResurgenceGovernance = await hre.ethers.getContractFactory("ResurgenceGovernance");
-  const votingDelay = 7200; // ~4 hours on Polygon (2s/block) — prevents flash-loan snapshot attacks
-  const votingPeriod = 50400; // ~1 week at 12s/block
+  const votingDelay = parseInt(process.env.VOTING_DELAY || "7200");   // default ~24h on Arb; use 2 for testnet
+  const votingPeriod = parseInt(process.env.VOTING_PERIOD || "50400"); // default ~1 week; use 50 for testnet
   const quorumPercentage = 4; // 4%
   const proposalThreshold = 1000n * 10n**18n; // 1000 RESURGE
   const resurgenceGovernance = await ResurgenceGovernance.deploy(

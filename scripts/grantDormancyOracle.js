@@ -21,9 +21,9 @@
 
 const hre = require("hardhat");
 
-const GOVERNANCE_ADDRESS        = process.env.GOVERNANCE_ADDRESS        || "0x7E38270a3077F1652D4bBdA5f0D5d2C986Ab00c3";
-const REWARD_DISTRIBUTOR_ADDRESS= process.env.REWARD_DISTRIBUTOR_ADDRESS|| "0x9769038aCbD727C41cF29102BB012Ee735BD2cdd";
-const TIMELOCK_ADDRESS          = process.env.TIMELOCK_ADDRESS          || "0x9e0141B004Cc140EC9C3243c75cF0029152E95e5";
+const GOVERNANCE_ADDRESS        = process.env.GOVERNANCE_ADDRESS        || "0x2E3817C70Dc07e1Aa4239dCFfD62af28632b1228";
+const REWARD_DISTRIBUTOR_ADDRESS= process.env.REWARD_DISTRIBUTOR_ADDRESS|| "0xCDfd46512dA68e2eD555D1d0Ac09aB1Acf38f2Ed";
+const TIMELOCK_ADDRESS          = process.env.TIMELOCK_ADDRESS          || "0x65ddC4419c34cCe678a9A6D44E05666af2B1D869";
 // ChronoNode operator address derived from private key 76cf1b0bff9468e5d60b78b4f341dd1934868447975e4af057781dea14a01c04
 const ORACLE_ADDRESS            = process.env.ORACLE_ADDRESS            || "0x201624cBa366250D08bCdA95e6eF64151687A447";
 const POLL_MS                   = parseInt(process.env.POLL_INTERVAL_MS || "30000");
@@ -114,7 +114,7 @@ async function main() {
     log("");
   } else {
     log("Submitting governance proposal...");
-    const tx = await governance.propose(targets, values, calldatas, description);
+    const tx = await governance.propose(targets, values, calldatas, description, { gasLimit: 500000 });
     const receipt = await tx.wait();
     log(`Proposal tx: ${receipt.hash}`);
     const createdLog = receipt.logs.find(l => {

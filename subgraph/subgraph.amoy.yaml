@@ -9,7 +9,7 @@ dataSources:
     network: polygon-amoy
     source:
       abi: StakingPoolManager
-      address: "REPLACE_AMOY_STAKING_POOL_MANAGER"
+      address: "0xbc6d675069c57a1c039a4f0be0979cb6e6727a9b"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -35,6 +35,41 @@ dataSources:
         - event: ImplementationUpdated(indexed address)
           handler: handleImplementationUpdated
       file: ./src/mappings/pools.ts
+
+  - kind: ethereum
+    name: DeadCoinStakingPool_Direct
+    network: polygon-amoy
+    source:
+      abi: DeadCoinStakingPool
+      address: "0xAa0510C739B14DaC10Df4EfbD1C093D3bd2662Ac"
+      startBlock: 38890000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - StakingPool
+        - StakingPosition
+        - StakingEvent
+        - RewardClaimEvent
+        - BridgeClaimEvent
+        - ProtocolMetrics
+      abis:
+        - name: DeadCoinStakingPool
+          file: ./abi/DeadCoinStakingPool.json
+      eventHandlers:
+        - event: Staked(indexed address,uint256)
+          handler: handleStaked
+        - event: Unstaked(indexed address,uint256)
+          handler: handleUnstaked
+        - event: RewardsClaimed(indexed address,uint256)
+          handler: handleRewardsClaimed
+        - event: RewardRateUpdated(uint256)
+          handler: handleRewardRateUpdated
+        - event: BridgeClaimed(indexed address,uint256,bytes32)
+          handler: handleBridgeClaimed
+      file: ./src/mappings/staking.ts
 
 templates:
   - kind: ethereum
