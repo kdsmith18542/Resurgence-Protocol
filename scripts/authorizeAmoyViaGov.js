@@ -1,0 +1,155 @@
+/**
+ * authorizeAmoyViaGov.js
+ *
+ * Governance proposal to authorize the Amoy spoke CrossChainSender
+ * in the hub CrossChainReceiver via TIMELOCK_ROLE.
+ *
+ * Required: PRIVATE_KEY in .env, ~1000 RESURGE delegated to signer.
+ *
+ * Usage:
+ *   npx hardhat run scripts/authorizeAmoyViaGov.js --network arbitrumSepolia
+ */
+
+const hre = require("hardhat");
+
+const GOVERNANCE_ADDRESS = "0x2E3817C70Dc07e1Aa4239dCFfD62af28632b1228";
+const RECEIVER_ADDRESS   = "0xF1384305959ebBC11838304127e619Ff3b1E36B4";
+const AMOY_CHAIN_SEL     = "16281711391670634445";
+const AMOY_SENDER        = "0xB19BaeF4995A5DD6d50797928053789D20008B46";
+const POLL_MS            = parseInt(process.env.POLL_INTERVAL_MS || "15000");
+
+const STATE_NAMES = ["Pending","Active","Canceled","Defeated","Succeeded","Queued","Expired","Executed"];
+const S = { Pending:0, Active:1, Canceled:2, Defeated:3, Succeeded:4, Queued:5, Expired:6, Executed:7 };
+
+function log(msg) { console.log(`[${new Date().toISOString().slice(0,19).replace("T"," ")}] ${msg}`); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function pollUntil(label, fn, ms) {
+  log(`Waiting: ${label}`);
+  while (true) {
+    const r = await fn();
+    if (r != null) return r;
+    await sleep(ms);
+  }
+}
+
+async function main() {
+  const [signer] = await hre.ethers.getSigners();
+  log(`Signer:   ${signer.address}`);
+  log(`Receiver: ${RECEIVER_ADDRESS}`);
+  log(`Amoy sender: ${AMOY_SENDER}`);
+
+  const governance = await hre.ethers.getContractAt("ResurgenceGovernance", GOVERNANCE_ADDRESS, signer);
+  const receiver   = await hre.ethers.getContractAt("CrossChainReceiver",   RECEIVER_ADDRESS,   signer);
+
+  // Check votes
+  const token   = await hre.ethers.getContractAt("ResurgeToken", await governance.token());
+  const clockNow= await token.clock();
+  const votes   = await governance.getVotes(signer.address, clockNow - 1n).catch(() => 0n);
+  const thresh  = await governance.proposalThreshold();
+  log(`Votes: ${hre.ethers.formatEther(votes)} / threshold ${hre.ethers.formatEther(thresh)} RESURGE`);
+  if (votes < thresh) throw new Error("Insufficient votes — delegate RESURGE first");
+
+  // Check if already authorized
+  const current = await receiver.authorizedSources(BigInt(AMOY_CHAIN_SEL));
+  const encodedSender = hre.ethers.AbiCoder.defaultAbiCoder().encode(["address"], [AMOY_SENDER]);
+  if (current && current !== "0x" && current.toLowerCase() === encodedSender.toLowerCase()) {
+    log("✅ Amoy already authorized — nothing to do.");
+    return;
+  }
+  log(`Current authorizedSources[Amoy]: ${current || "none"}`);
+
+  // Build calldata for CrossChainReceiver.setAuthorizedSource(chainSelector, bytes sender)
+  // sender must be abi.encode(address) = 32 bytes (CCIP EVM format)
+  const calldata = receiver.interface.encodeFunctionData("setAuthorizedSource", [
+    BigInt(AMOY_CHAIN_SEL),
+    encodedSender,
+  ]);
+
+  const targets     = [RECEIVER_ADDRESS];
+  const values      = [0n];
+  const calldatas   = [calldata];
+  const description = [
+    "# Authorize Amoy CrossChainSender on hub CrossChainReceiver",
+    "",
+    "Calls CrossChainReceiver.setAuthorizedSource() to allow CCIP reward-bridge",
+    "messages from the Polygon Amoy spoke chain.",
+    "",
+    `Chain selector: ${AMOY_CHAIN_SEL}`,
+    `CrossChainSender (Amoy): ${AMOY_SENDER}`,
+    `CrossChainReceiver (hub): ${RECEIVER_ADDRESS}`,
+  ].join("\n");
+  const descHash = hre.ethers.id(description);
+
+  let proposalId = process.env.PROPOSAL_ID ? BigInt(process.env.PROPOSAL_ID) : null;
+  if (!proposalId) {
+    log("Proposing...");
+    const tx = await governance.propose(targets, values, calldatas, description, { gasLimit: 500000 });
+    const receipt = await tx.wait();
+    const ev = receipt.logs.map(l => { try { return governance.interface.parseLog(l); } catch {} }).find(e => e?.name === "ProposalCreated");
+    if (!ev) throw new Error("ProposalCreated not found");
+    proposalId = ev.args[0];
+    log(`Proposal ID: ${proposalId}  tx: ${receipt.hash}`);
+  } else {
+    log(`Resuming proposal: ${proposalId}`);
+  }
+
+  // Wait for Active
+  await pollUntil("Active", async () => {
+    const s = Number(await governance.state(proposalId));
+    log(`  state: ${STATE_NAMES[s]}`);
+    return s === S.Active ? true : null;
+  }, POLL_MS);
+
+  log("Voting For...");
+  const voteTx = await governance.castVoteWithReason(proposalId, 1, "Authorize Amoy spoke");
+  await voteTx.wait();
+  log(`Vote tx: ${voteTx.hash}`);
+
+  // Wait for Succeeded
+  await pollUntil("Succeeded", async () => {
+    const s = Number(await governance.state(proposalId));
+    log(`  state: ${STATE_NAMES[s]}`);
+    if (s === S.Defeated) throw new Error("Defeated");
+    if (s === S.Canceled) throw new Error("Canceled");
+    return s === S.Succeeded ? true : null;
+  }, POLL_MS);
+
+  log("Queueing...");
+  await (await governance.queue(targets, values, calldatas, descHash)).wait();
+  log("Queued.");
+
+  // Wait for Queued state then attempt execute
+  await pollUntil("ready to execute", async () => {
+    const s = Number(await governance.state(proposalId));
+    log(`  state: ${STATE_NAMES[s]}`);
+    return (s === S.Queued || s === S.Executed) ? true : null;
+  }, POLL_MS);
+
+  log("Executing...");
+  while (true) {
+    try {
+      const tx = await governance.execute(targets, values, calldatas, descHash);
+      await tx.wait();
+      log(`Executed! tx: ${tx.hash}`);
+      break;
+    } catch (err) {
+      if (err.message?.includes("TimelockController") || err.message?.includes("too early") || err.message?.includes("revert")) {
+        log(`  Not ready (${err.message.slice(0,60)}), retrying in ${POLL_MS/1000}s...`);
+        await sleep(POLL_MS);
+      } else throw err;
+    }
+  }
+
+  // Verify
+  const result = await receiver.authorizedSources(BigInt(AMOY_CHAIN_SEL));
+  log(`✅ authorizedSources[Amoy]: ${result}`);
+  log(`Expected:                   ${encodedSender}`);
+  if (result.toLowerCase() === encodedSender.toLowerCase()) {
+    log("✅ Amoy CrossChainSender authorized successfully.");
+  } else {
+    log("⚠️  Mismatch — verify manually.");
+  }
+}
+
+main().catch(err => { log(`❌ ${err.message}`); process.exit(1); });

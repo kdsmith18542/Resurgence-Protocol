@@ -8,7 +8,9 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "outDir": "dist",
+    "rootDir": ".",
     "baseUrl": ".",
+    "ignoreDeprecations": "5.0",
     "paths": {
       "@openzeppelin/*": ["./node_modules/@openzeppelin/*"]
     }

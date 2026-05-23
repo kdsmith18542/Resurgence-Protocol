@@ -9,8 +9,8 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: ResurgeToken
-      address: "0xEf86D6646F5782807423E3573E5A99E3c9bbaeCd"
-      startBlock: 270420000
+      address: "0xa95D4aD543BCfCeee94CdF3F4CcFb3826280AfE0"
+      startBlock: 270500000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -33,8 +33,8 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: StakingPoolManager
-      address: "0xFFA58b5f40C74D08AeF9182b4cdF6b87F0FB3da7"
-      startBlock: 270420000
+      address: "0x885288A3238d47D675AC9220EFc71FBE5bfc23dd"
+      startBlock: 270500000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -65,8 +65,8 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: RewardDistributor
-      address: "0x9769038aCbD727C41cF29102BB012Ee735BD2cdd"
-      startBlock: 270420000
+      address: "0xCDfd46512dA68e2eD555D1d0Ac09aB1Acf38f2Ed"
+      startBlock: 270500000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -93,8 +93,8 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: ResurgenceGovernance
-      address: "0x7E38270a3077F1652D4bBdA5f0D5d2C986Ab00c3"
-      startBlock: 270420000
+      address: "0x2E3817C70Dc07e1Aa4239dCFfD62af28632b1228"
+      startBlock: 270500000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -125,8 +125,8 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: ResurgenceTimelockController
-      address: "0x9e0141B004Cc140EC9C3243c75cF0029152E95e5"
-      startBlock: 270420000
+      address: "0x65ddC4419c34cCe678a9A6D44E05666af2B1D869"
+      startBlock: 270500000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -150,8 +150,8 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: ResurgeStakingPool
-      address: "0xcb21623b4A9c24399b3720352BdE95830388A00b"
-      startBlock: 270420000
+      address: "0xC4e5fC1207c74554837E7259a2F410E33567afAD"
+      startBlock: 270538755
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
