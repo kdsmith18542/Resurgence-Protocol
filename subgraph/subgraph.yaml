@@ -9,7 +9,7 @@ dataSources:
     network: matic
     source:
       abi: ResurgeToken
-      address: "0xRESURGE_TOKEN_ADDRESS"
+      address: "0x0000000000000000000000000000000000000000"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -33,7 +33,7 @@ dataSources:
     network: matic
     source:
       abi: StakingPoolManager
-      address: "0xSTAKING_POOL_MANAGER_ADDRESS"
+      address: "0x0000000000000000000000000000000000000000"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -65,7 +65,7 @@ dataSources:
     network: matic
     source:
       abi: RewardDistributor
-      address: "0xREWARD_DISTRIBUTOR_ADDRESS"
+      address: "0x0000000000000000000000000000000000000000"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -93,7 +93,7 @@ dataSources:
     network: matic
     source:
       abi: ResurgenceGovernance
-      address: "0xGOVERNANCE_ADDRESS"
+      address: "0x0000000000000000000000000000000000000000"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -125,7 +125,7 @@ dataSources:
     network: matic
     source:
       abi: ResurgenceTimelockController
-      address: "0xTIMELOCK_CONTROLLER_ADDRESS"
+      address: "0x0000000000000000000000000000000000000000"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -143,12 +143,13 @@ dataSources:
           handler: handleCallExecuted
         - event: Cancelled(indexed bytes32)
           handler: handleCancelled
+      file: ./src/mappings/timelock.ts
   - kind: ethereum
     name: ResurgeStakingPool
     network: matic
     source:
       abi: ResurgeStakingPool
-      address: "0xRESURGE_STAKING_POOL_ADDRESS"
+      address: "0x0000000000000000000000000000000000000000"
       startBlock: 0
     mapping:
       kind: ethereum/events
@@ -165,9 +166,9 @@ dataSources:
         - name: ResurgeStakingPool
           file: ./abi/ResurgeStakingPool.json
       eventHandlers:
-        - event: Staked(indexed address,uint256,indexed address)
+        - event: Staked(indexed address,uint256,address)
           handler: handleResurgeStaked
-        - event: Unstaked(indexed address,uint256)
+        - event: Unstaked(indexed address,uint256,uint256)
           handler: handleResurgeUnstaked
         - event: RewardsClaimed(indexed address,uint256)
           handler: handleResurgeRewardsClaimed

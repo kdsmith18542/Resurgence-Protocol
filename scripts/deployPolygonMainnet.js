@@ -128,11 +128,17 @@ async function main() {
   const MINTER_ROLE = await token.MINTER_ROLE();
   const PAUSER_ROLE = await token.PAUSER_ROLE();
 
+  const TIMELOCK_ROLE_TOKEN = await token.TIMELOCK_ROLE();
   await token.grantRole(DEFAULT_ADMIN_ROLE, timelockAddress);
   await token.grantRole(MINTER_ROLE, distributorAddress);
   await token.grantRole(PAUSER_ROLE, timelockAddress);
+  await token.grantRole(TIMELOCK_ROLE_TOKEN, timelockAddress);
+  // Revoke all deployer privileges before losing DEFAULT_ADMIN_ROLE
+  await token.revokeRole(MINTER_ROLE, deployer.address);
+  await token.revokeRole(PAUSER_ROLE, deployer.address);
+  await token.revokeRole(TIMELOCK_ROLE_TOKEN, deployer.address);
   await token.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
-  console.log("   Token roles transferred");
+  console.log("   Token roles transferred (deployer MINTER/PAUSER/TIMELOCK revoked)");
 
   // 8.5. Grant manager TIMELOCK_ROLE on the distributor so addStakingPool can authorize/deauthorize pools
   await distributor.grantRole(await distributor.TIMELOCK_ROLE(), managerAddress);

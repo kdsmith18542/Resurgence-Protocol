@@ -8,6 +8,8 @@
     "create-local": "graph create --node http://localhost:8020/ resurgence-protocol",
     "remove-local": "graph remove --node http://localhost:8020/ resurgence-protocol",
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 resurgence-protocol",
+    "create-vps": "graph create --node http://localhost:8020/ resurgence-protocol",
+    "deploy-vps": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5002 resurgence-protocol",
     "test": "graph test"
   },
   "devDependencies": {

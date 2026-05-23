@@ -1,5 +1,5 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { useState, useEffect } from 'react';
 import { ProposalState } from '@/types';
@@ -10,7 +10,8 @@ import { getContractAddress } from '@/lib/contracts';
 import { useChainId } from 'wagmi';
 
 export default function ProposalDetailClient() {
-  const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id') ?? '';
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const [proposal, setProposal] = useState<SubgraphProposal | null>(null);

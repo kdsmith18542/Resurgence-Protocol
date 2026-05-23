@@ -1,5 +1,5 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { useState, useEffect } from 'react';
 import StatCard from '@/components/StatCard';
@@ -11,7 +11,8 @@ import { useErc20Balance, useErc20Symbol } from '@/hooks/useTokenData';
 import { fetchPools, fetchUserPosition } from '@/lib/graphql';
 
 export default function PoolDetailClient() {
-  const { address: poolAddress } = useParams<{ address: string }>();
+  const searchParams = useSearchParams();
+  const poolAddress = searchParams.get('address') ?? '';
   const { address: userAddress, isConnected } = useAccount();
   const [showStake, setShowStake] = useState(false);
   const [showUnstake, setShowUnstake] = useState(false);

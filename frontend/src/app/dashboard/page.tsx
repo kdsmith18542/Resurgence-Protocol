@@ -142,7 +142,7 @@ export default function DashboardPage() {
           </div>
           {userData?.stakingPositions?.length > 0 ? (
             userData.stakingPositions.map((pos: any) => (
-              <Link key={pos.pool.id} href={`/pools/${pos.pool.poolAddress}`}
+              <Link key={pos.pool.id} href={`/pools/detail/?address=${pos.pool.poolAddress}`}
                 className="flex items-center justify-between py-3 border-b border-gray-700 last:border-0 hover:bg-gray-700/50 px-2 rounded transition-colors">
                 <div>
                   <p className="text-white text-sm font-mono">{pos.pool.id.slice(0, 10)}...</p>

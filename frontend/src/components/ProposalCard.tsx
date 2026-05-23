@@ -29,7 +29,7 @@ export default function ProposalCard({ proposal, onVote, voting }: ProposalCardP
   return (
     <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
       <div className="flex items-center justify-between mb-3">
-        <Link href={`/governance/${proposal.id}`} className="text-sm font-mono text-blue-400 hover:text-blue-300">
+        <Link href={`/governance/detail/?id=${proposal.id}`} className="text-sm font-mono text-blue-400 hover:text-blue-300">
           #{propId}
         </Link>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gray-700 ${stateColor}`}>

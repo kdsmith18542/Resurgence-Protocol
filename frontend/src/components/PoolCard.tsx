@@ -17,7 +17,7 @@ export default function PoolCard({ pool, onStake, onUnstake, onClaim }: PoolCard
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-gray-500 transition-colors">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <Link href={`/pools/${pool.address}`} className="text-lg font-semibold text-white hover:text-blue-400">
+          <Link href={`/pools/detail/?address=${pool.address}`} className="text-lg font-semibold text-white hover:text-blue-400">
             {pool.deadCoinName || pool.deadCoinSymbol || 'Unknown Pool'}
           </Link>
           <p className="text-sm text-gray-400 font-mono">{pool.deadCoinSymbol}</p>

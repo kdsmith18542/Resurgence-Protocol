@@ -130,9 +130,9 @@ npx hardhat test test/ResurgeToken.test.js
 npx hardhat run scripts/deployResurgenceProtocol.js --network localhost
 ```
 
-### Polygon Mumbai (testnet rehearsal — do this first)
+### Polygon Amoy (testnet rehearsal — do this first)
 ```bash
-npx hardhat run scripts/deployPolygonMainnet.js --network polygonMumbai
+npx hardhat run scripts/deployPolygonMainnet.js --network amoy
 ```
 
 ### Polygon Mainnet

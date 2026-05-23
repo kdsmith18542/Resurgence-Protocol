@@ -60,3 +60,12 @@ frontend/build/
 .qodo/
 .kilo/
 
+# Subgraph generated/build artifacts
+subgraph/build/
+subgraph/generated/
+
+# Project planning (local only)
+plan.md
+agents.md
+AGENTS.md
+
