@@ -100,14 +100,13 @@ async function main() {
   }
   log("");
 
-  // --- Step 2: Build & submit proposal ---
+  // --- Step 2: Build proposal calldata (needed for queue/execute even when resuming) ---
   const addPoolCalldata = manager.interface.encodeFunctionData("addStakingPool", [
     deadCoinAddress,
     REWARD_RATE,
     TIMELOCK_ADDRESS,
     TIMELOCK_ADDRESS,
   ]);
-
   const targets     = [MANAGER_ADDRESS];
   const values      = [0n];
   const calldatas   = [addPoolCalldata];
@@ -123,18 +122,24 @@ async function main() {
   ].join("\n");
   const descHash = hre.ethers.id(description);
 
-  log("Submitting governance proposal...");
-  const proposeTx = await governance.propose(targets, values, calldatas, description);
-  const proposeReceipt = await proposeTx.wait();
-  log(`Proposal tx: ${proposeReceipt.hash}`);
-
-  const createdLog = proposeReceipt.logs.find(l => {
-    try { return governance.interface.parseLog(l)?.name === "ProposalCreated"; } catch { return false; }
-  });
-  if (!createdLog) throw new Error("ProposalCreated event not found in receipt");
-  const proposalId = governance.interface.parseLog(createdLog).args[0];
-  log(`Proposal ID: ${proposalId}`);
-  log("");
+  // Resume from existing proposal if PROPOSAL_ID is set
+  let proposalId = process.env.PROPOSAL_ID ? BigInt(process.env.PROPOSAL_ID) : null;
+  if (proposalId) {
+    log(`Resuming with existing proposal ID: ${proposalId}`);
+    log("");
+  } else {
+    log("Submitting governance proposal...");
+    const proposeTx = await governance.propose(targets, values, calldatas, description);
+    const proposeReceipt = await proposeTx.wait();
+    log(`Proposal tx: ${proposeReceipt.hash}`);
+    const createdLog = proposeReceipt.logs.find(l => {
+      try { return governance.interface.parseLog(l)?.name === "ProposalCreated"; } catch { return false; }
+    });
+    if (!createdLog) throw new Error("ProposalCreated event not found in receipt");
+    proposalId = governance.interface.parseLog(createdLog).args[0];
+    log(`Proposal ID: ${proposalId}`);
+    log("");
+  }
 
   // --- Step 3: Wait for Active, then vote ---
   await pollUntil("proposal Active (voting delay passed)", async () => {
