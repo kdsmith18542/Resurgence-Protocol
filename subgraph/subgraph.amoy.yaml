@@ -1,0 +1,71 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: StakingPoolManager
+    network: polygon-amoy
+    source:
+      abi: StakingPoolManager
+      address: "REPLACE_AMOY_STAKING_POOL_MANAGER"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - StakingPool
+        - ProtocolMetrics
+      abis:
+        - name: StakingPoolManager
+          file: ./abi/StakingPoolManager.json
+      eventHandlers:
+        - event: StakingPoolAdded(indexed address,indexed address,uint256)
+          handler: handleStakingPoolAdded
+        - event: RewardRateUpdated(indexed address,uint256)
+          handler: handleRewardRateUpdated
+        - event: StakingPoolPaused(indexed address,indexed address)
+          handler: handleStakingPoolPaused
+        - event: StakingPoolUnpaused(indexed address,indexed address)
+          handler: handleStakingPoolUnpaused
+        - event: StakingPoolRemoved(indexed address,indexed address)
+          handler: handleStakingPoolRemoved
+        - event: ImplementationUpdated(indexed address)
+          handler: handleImplementationUpdated
+      file: ./src/mappings/pools.ts
+
+templates:
+  - kind: ethereum
+    name: DeadCoinStakingPool
+    network: polygon-amoy
+    source:
+      abi: DeadCoinStakingPool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - StakingPool
+        - StakingPosition
+        - StakingEvent
+        - RewardClaimEvent
+        - BridgeClaimEvent
+        - ProtocolMetrics
+      abis:
+        - name: DeadCoinStakingPool
+          file: ./abi/DeadCoinStakingPool.json
+      eventHandlers:
+        - event: Staked(indexed address,uint256)
+          handler: handleStaked
+        - event: Unstaked(indexed address,uint256)
+          handler: handleUnstaked
+        - event: RewardsClaimed(indexed address,uint256)
+          handler: handleRewardsClaimed
+        - event: RewardRateUpdated(uint256)
+          handler: handleRewardRateUpdated
+        - event: BridgeClaimed(indexed address,uint256,bytes32)
+          handler: handleBridgeClaimed
+      file: ./src/mappings/staking.ts

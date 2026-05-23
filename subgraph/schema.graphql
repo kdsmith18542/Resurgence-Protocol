@@ -17,6 +17,7 @@ type User @entity {
   stakingEvents: [StakingEvent!] @derivedFrom(field: "user")
   rewardClaimEvents: [RewardClaimEvent!] @derivedFrom(field: "user")
   votes: [VoteReceipt!] @derivedFrom(field: "voter")
+  bridgeClaimEvents: [BridgeClaimEvent!] @derivedFrom(field: "user")
 }
 
 type StakingPool @entity {
@@ -33,6 +34,7 @@ type StakingPool @entity {
   stakerCount: BigInt!
   stakingPositions: [StakingPosition!] @derivedFrom(field: "pool")
   stakingEvents: [StakingEvent!] @derivedFrom(field: "pool")
+  bridgeClaimEvents: [BridgeClaimEvent!] @derivedFrom(field: "pool")
 }
 
 type StakingPosition @entity {
@@ -69,6 +71,17 @@ type RewardClaimEvent @entity(immutable: true) {
   user: User!
   pool: StakingPool!
   amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type BridgeClaimEvent @entity(immutable: true) {
+  id: Bytes!
+  user: User!
+  pool: StakingPool!
+  amount: BigInt!
+  messageId: Bytes!
   timestamp: BigInt!
   blockNumber: BigInt!
   transactionHash: Bytes!

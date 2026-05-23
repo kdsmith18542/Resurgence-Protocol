@@ -2,21 +2,34 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useAccount, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
-import { polygon, polygonMumbai, arbitrum, optimism } from 'wagmi/chains';
 import WalletConnectModal from './WalletConnectModal';
 import DelegateVotes from './DelegateVotes';
 import EmergencyControls from './EmergencyControls';
 import { truncateAddress } from '@/lib/utils';
+import { CHAIN_NAMES } from '@/lib/contracts';
 
-const SUPPORTED_CHAINS = [
-  { id: polygon.id, name: 'Polygon' },
-  { id: polygonMumbai.id, name: 'Mumbai' },
-  { id: arbitrum.id, name: 'Arbitrum' },
-  { id: optimism.id, name: 'Optimism' },
+const HUB_CHAINS = [
+  { id: 42161,  name: 'Arbitrum One',     badge: 'HUB' },
+  { id: 421614, name: 'Arbitrum Sepolia', badge: 'HUB' },
 ];
 
+const SPOKE_CHAINS = [
+  { id: 137,   name: 'Polygon',      badge: 'SPOKE' },
+  { id: 80002, name: 'Amoy',         badge: 'SPOKE' },
+  { id: 56,    name: 'BNB Chain',    badge: 'SPOKE' },
+  { id: 97,    name: 'BSC Testnet',  badge: 'SPOKE' },
+  { id: 8453,  name: 'Base',         badge: 'SPOKE' },
+  { id: 84532, name: 'Base Sepolia', badge: 'SPOKE' },
+];
+
+const ALL_CHAINS = [...HUB_CHAINS, ...SPOKE_CHAINS];
+
 function chainName(id: number): string {
-  return SUPPORTED_CHAINS.find(c => c.id === id)?.name ?? `Chain ${id}`;
+  return CHAIN_NAMES[id] ?? `Chain ${id}`;
+}
+
+function isHubChain(id: number): boolean {
+  return HUB_CHAINS.some(c => c.id === id);
 }
 
 export default function Header() {
@@ -50,19 +63,39 @@ export default function Header() {
                 <div className="relative hidden sm:block">
                   <button
                     onClick={() => setIsNetworkOpen(v => !v)}
-                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
                   >
+                    <span className={`text-[10px] font-bold px-1 py-0.5 rounded ${isHubChain(chainId) ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'}`}>
+                      {isHubChain(chainId) ? 'HUB' : 'SPOKE'}
+                    </span>
                     {chainName(chainId)}
                     <span className="text-gray-500">▾</span>
                   </button>
                   {isNetworkOpen && (
-                    <div className="absolute right-0 mt-1 w-36 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
-                      {SUPPORTED_CHAINS.map(chain => (
+                    <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-blue-400 uppercase tracking-wider border-b border-gray-700">
+                        Hub (Arbitrum)
+                      </div>
+                      {HUB_CHAINS.map(chain => (
                         <button
                           key={chain.id}
                           onClick={() => { switchChain({ chainId: chain.id }); setIsNetworkOpen(false); }}
                           className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                             chain.id === chainId ? 'text-blue-400 bg-gray-700' : 'text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          {chain.name}
+                        </button>
+                      ))}
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-purple-400 uppercase tracking-wider border-b border-t border-gray-700">
+                        Spoke Chains
+                      </div>
+                      {SPOKE_CHAINS.map(chain => (
+                        <button
+                          key={chain.id}
+                          onClick={() => { switchChain({ chainId: chain.id }); setIsNetworkOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                            chain.id === chainId ? 'text-purple-400 bg-gray-700' : 'text-gray-300 hover:bg-gray-700'
                           }`}
                         >
                           {chain.name}

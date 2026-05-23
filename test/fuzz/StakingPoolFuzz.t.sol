@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../contracts/ResurgeToken.sol";
 import "../../contracts/DeadCoinStakingPool.sol";
 import "../../contracts/StakingPoolManager.sol";
@@ -39,21 +40,27 @@ contract StakingPoolFuzzTest is Test {
 
         timelock = new ResurgenceTimelockController(3600, proposers, executors, admin);
 
-        resurgeToken = new ResurgeToken();
-        resurgeToken.initialize(admin, INITIAL_SUPPLY);
+        resurgeToken = ResurgeToken(address(new ERC1967Proxy(
+            address(new ResurgeToken()),
+            abi.encodeWithSelector(ResurgeToken.initialize.selector, admin, INITIAL_SUPPLY)
+        )));
 
-        distributor = new RewardDistributor();
-        distributor.initialize(address(resurgeToken), MAX_MINT, address(timelock));
+        distributor = RewardDistributor(address(new ERC1967Proxy(
+            address(new RewardDistributor()),
+            abi.encodeWithSelector(RewardDistributor.initialize.selector, address(resurgeToken), MAX_MINT, address(timelock))
+        )));
 
         poolImpl = new DeadCoinStakingPool();
 
-        manager = new StakingPoolManager();
-        manager.initialize(
-            address(resurgeToken),
-            address(distributor),
-            address(poolImpl),
-            address(timelock)
-        );
+        manager = StakingPoolManager(address(new ERC1967Proxy(
+            address(new StakingPoolManager()),
+            abi.encodeWithSelector(StakingPoolManager.initialize.selector,
+                address(resurgeToken),
+                address(distributor),
+                address(poolImpl),
+                address(timelock)
+            )
+        )));
 
         deadCoin = new ERC20Mock("DeadCoin", "DEAD", 1_000_000_000 ether);
 
@@ -61,13 +68,14 @@ contract StakingPoolFuzzTest is Test {
         resurgeToken.grantRole(resurgeToken.MINTER_ROLE(), address(distributor));
         resurgeToken.grantRole(resurgeToken.DEFAULT_ADMIN_ROLE(), address(timelock));
         distributor.grantRole(distributor.TIMELOCK_ROLE(), address(timelock));
+        distributor.grantRole(distributor.TIMELOCK_ROLE(), address(manager));
         manager.grantRole(manager.TIMELOCK_ROLE(), address(timelock));
 
         vm.stopPrank();
 
         // Deploy a staking pool via manager
         vm.prank(address(timelock));
-        deadCoinPool = manager.addStakingPool(address(deadCoin), INITIAL_REWARD_RATE, address(timelock));
+        deadCoinPool = manager.addStakingPool(address(deadCoin), INITIAL_REWARD_RATE, address(timelock), address(timelock));
 
         // Fund users
         deadCoin.mint(user1, 100_000_000 ether);

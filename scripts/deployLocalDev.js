@@ -150,7 +150,7 @@ async function main() {
 
     // Manually create pool: deploy proxy with init data
     const poolInitData = DeadCoinStakingPool.interface.encodeFunctionData("initialize", [
-      mockAddr, tokenAddr, rdAddr, mgrAddr, timelockAddr
+      mockAddr, tokenAddr, rdAddr, mgrAddr, timelockAddr, timelockAddr
     ]);
     const poolProxy = await ERC1967Proxy.deploy(poolImplAddr, poolInitData);
     await poolProxy.waitForDeployment();
@@ -163,7 +163,7 @@ async function main() {
     await pool.grantRole(await pool.TIMELOCK_ROLE(), mgrAddr);
 
     // Set reward rate (TIMELOCK_ROLE required)
-    await mgr['addStakingPool(address,uint256,address)'](mockAddr, 1000000000000000000n, timelockAddr);
+    await mgr['addStakingPool(address,uint256,address,address)'](mockAddr, 1000000000000000000n, timelockAddr, timelockAddr);
 
     poolAddresses.push(poolAddr);
     console.log(`   Registered in StakingPoolManager`);

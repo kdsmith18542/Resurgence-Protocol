@@ -57,35 +57,35 @@ describe("StakingPoolManager", function () {
   describe("addStakingPool", function () {
     it("TIMELOCK_ROLE can add a new pool", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), ethers.parseEther("1"), timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), ethers.parseEther("1"), timelock.address, timelock.address);
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
       expect(poolAddress).to.not.equal(ethers.ZeroAddress);
     });
 
     it("non-TIMELOCK cannot add a pool", async function () {
       const { manager, deadCoin1, user1 } = await loadFixture(deployFixture);
-      await expect(manager.connect(user1).addStakingPool(await deadCoin1.getAddress(), 0n, user1.address))
+      await expect(manager.connect(user1).addStakingPool(await deadCoin1.getAddress(), 0n, user1.address, user1.address))
         .to.be.revertedWithCustomError(manager, "AccessControlUnauthorizedAccount");
     });
 
     it("adds dead coin to supportedDeadCoins array", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       const coins = await manager.getAllSupportedDeadCoins();
       expect(coins).to.include(await deadCoin1.getAddress());
     });
 
     it("reverts on duplicate pool for same dead coin", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
-      await expect(manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address))
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
+      await expect(manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address))
         .to.be.revertedWithCustomError(manager, "StakingPoolManager_PoolExists");
     });
 
     it("sets initial reward rate on the new pool", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
       const rate = ethers.parseEther("5");
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), rate, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), rate, timelock.address, timelock.address);
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
       const pool = await ethers.getContractAt("DeadCoinStakingPool", poolAddress);
       expect(await pool.rewardRatePerSecond()).to.equal(rate);
@@ -93,7 +93,7 @@ describe("StakingPoolManager", function () {
 
     it("emits StakingPoolAdded event", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await expect(manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address))
+      await expect(manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address))
         .to.emit(manager, "StakingPoolAdded");
     });
   });
@@ -101,8 +101,8 @@ describe("StakingPoolManager", function () {
   describe("getAllSupportedDeadCoins", function () {
     it("returns all added dead coins", async function () {
       const { manager, deadCoin1, deadCoin2, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
-      await manager.connect(timelock).addStakingPool(await deadCoin2.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin2.getAddress(), 0n, timelock.address, timelock.address);
       const coins = await manager.getAllSupportedDeadCoins();
       expect(coins.length).to.equal(2);
       expect(coins).to.include(await deadCoin1.getAddress());
@@ -118,7 +118,7 @@ describe("StakingPoolManager", function () {
   describe("setRewardRate", function () {
     it("TIMELOCK_ROLE can update reward rate", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       const newRate = ethers.parseEther("10");
       await manager.connect(timelock).setRewardRate(await deadCoin1.getAddress(), newRate);
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
@@ -128,7 +128,7 @@ describe("StakingPoolManager", function () {
 
     it("non-TIMELOCK cannot set reward rate", async function () {
       const { manager, deadCoin1, timelock, user1 } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       await expect(manager.connect(user1).setRewardRate(await deadCoin1.getAddress(), ethers.parseEther("1")))
         .to.be.revertedWithCustomError(manager, "AccessControlUnauthorizedAccount");
     });
@@ -137,7 +137,7 @@ describe("StakingPoolManager", function () {
   describe("pauseStakingPool / unpauseStakingPool", function () {
     it("TIMELOCK_ROLE can pause a pool", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       await manager.connect(timelock).pauseStakingPool(await deadCoin1.getAddress());
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
       const pool = await ethers.getContractAt("DeadCoinStakingPool", poolAddress);
@@ -146,7 +146,7 @@ describe("StakingPoolManager", function () {
 
     it("TIMELOCK_ROLE can unpause a pool", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       await manager.connect(timelock).pauseStakingPool(await deadCoin1.getAddress());
       await manager.connect(timelock).unpauseStakingPool(await deadCoin1.getAddress());
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
@@ -156,7 +156,7 @@ describe("StakingPoolManager", function () {
 
     it("non-TIMELOCK cannot pause a pool", async function () {
       const { manager, deadCoin1, timelock, user1 } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       await expect(manager.connect(user1).pauseStakingPool(await deadCoin1.getAddress()))
         .to.be.revertedWithCustomError(manager, "AccessControlUnauthorizedAccount");
     });
@@ -165,15 +165,15 @@ describe("StakingPoolManager", function () {
   describe("removeStakingPool", function () {
     it("TIMELOCK_ROLE can remove a pool", async function () {
       const { manager, deadCoin1, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       await manager.connect(timelock).removeStakingPool(await deadCoin1.getAddress());
       expect(await manager.deadCoinToPoolAddress(await deadCoin1.getAddress())).to.equal(ethers.ZeroAddress);
     });
 
     it("removes coin from supportedDeadCoins array", async function () {
       const { manager, deadCoin1, deadCoin2, timelock } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
-      await manager.connect(timelock).addStakingPool(await deadCoin2.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin2.getAddress(), 0n, timelock.address, timelock.address);
       await manager.connect(timelock).removeStakingPool(await deadCoin1.getAddress());
       const coins = await manager.getAllSupportedDeadCoins();
       expect(coins).to.not.include(await deadCoin1.getAddress());
@@ -182,7 +182,7 @@ describe("StakingPoolManager", function () {
 
     it("non-TIMELOCK cannot remove a pool", async function () {
       const { manager, deadCoin1, timelock, user1 } = await loadFixture(deployFixture);
-      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address);
+      await manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address);
       await expect(manager.connect(user1).removeStakingPool(await deadCoin1.getAddress()))
         .to.be.revertedWithCustomError(manager, "AccessControlUnauthorizedAccount");
     });
@@ -198,7 +198,7 @@ describe("StakingPoolManager", function () {
     it("addStakingPool reverts when manager is paused", async function () {
       const { manager, deadCoin1, timelock, emergencyPauser } = await loadFixture(deployFixture);
       await manager.connect(emergencyPauser).pause();
-      await expect(manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address))
+      await expect(manager.connect(timelock).addStakingPool(await deadCoin1.getAddress(), 0n, timelock.address, timelock.address))
         .to.be.revertedWithCustomError(manager, "EnforcedPause");
     });
 

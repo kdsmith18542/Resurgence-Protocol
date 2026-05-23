@@ -10,6 +10,7 @@
     "deploy:local": "hardhat run scripts/deployResurgenceProtocol.js --network localhost",
     "deploy:polygon": "hardhat run scripts/deployPolygonMainnet.js --network polygon",
     "deploy:mumbai": "hardhat run scripts/deployResurgenceProtocol.js --network mumbai",
+    "deploy:arbitrumSepolia": "hardhat run scripts/deployResurgenceProtocol.js --network arbitrumSepolia",
     "deploy:arbitrum": "hardhat run scripts/deployArbitrum.js --network arbitrum",
     "deploy:optimism": "hardhat run scripts/deployOptimism.js --network optimism",
     "verify": "hardhat verify",
@@ -46,6 +47,7 @@
   },
   "description": "",
   "dependencies": {
+    "@chainlink/contracts-ccip": "^1.6.4",
     "@openzeppelin/hardhat-upgrades": "^3.9.0"
   }
 }

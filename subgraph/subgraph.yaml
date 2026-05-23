@@ -6,11 +6,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: ResurgeToken
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: ResurgeToken
-      address: "0x0000000000000000000000000000000000000000"
-      startBlock: 0
+      address: "0xEf86D6646F5782807423E3573E5A99E3c9bbaeCd"
+      startBlock: 270420000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -30,11 +30,11 @@ dataSources:
 
   - kind: ethereum
     name: StakingPoolManager
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: StakingPoolManager
-      address: "0x0000000000000000000000000000000000000000"
-      startBlock: 0
+      address: "0xFFA58b5f40C74D08AeF9182b4cdF6b87F0FB3da7"
+      startBlock: 270420000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -62,11 +62,11 @@ dataSources:
 
   - kind: ethereum
     name: RewardDistributor
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: RewardDistributor
-      address: "0x0000000000000000000000000000000000000000"
-      startBlock: 0
+      address: "0x9769038aCbD727C41cF29102BB012Ee735BD2cdd"
+      startBlock: 270420000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -90,11 +90,11 @@ dataSources:
 
   - kind: ethereum
     name: ResurgenceGovernance
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: ResurgenceGovernance
-      address: "0x0000000000000000000000000000000000000000"
-      startBlock: 0
+      address: "0x7E38270a3077F1652D4bBdA5f0D5d2C986Ab00c3"
+      startBlock: 270420000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -122,11 +122,11 @@ dataSources:
 
   - kind: ethereum
     name: ResurgenceTimelockController
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: ResurgenceTimelockController
-      address: "0x0000000000000000000000000000000000000000"
-      startBlock: 0
+      address: "0x9e0141B004Cc140EC9C3243c75cF0029152E95e5"
+      startBlock: 270420000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -144,13 +144,14 @@ dataSources:
         - event: Cancelled(indexed bytes32)
           handler: handleCancelled
       file: ./src/mappings/timelock.ts
+
   - kind: ethereum
     name: ResurgeStakingPool
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: ResurgeStakingPool
-      address: "0x0000000000000000000000000000000000000000"
-      startBlock: 0
+      address: "0xcb21623b4A9c24399b3720352BdE95830388A00b"
+      startBlock: 270420000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -177,7 +178,7 @@ dataSources:
 templates:
   - kind: ethereum
     name: DeadCoinStakingPool
-    network: matic
+    network: arbitrum-sepolia
     source:
       abi: DeadCoinStakingPool
     mapping:
@@ -204,4 +205,6 @@ templates:
           handler: handleRewardsClaimed
         - event: RewardRateUpdated(uint256)
           handler: handleRewardRateUpdated
+        - event: BridgeClaimed(indexed address,uint256,bytes32)
+          handler: handleBridgeClaimed
       file: ./src/mappings/staking.ts

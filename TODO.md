@@ -1,6 +1,6 @@
 # Resurgence Protocol — TODO
 
-## Status: Phase 6 (75% complete). Awaiting external audit engagement.
+## Status: Phase 7 ready. Hub chain = Arbitrum. Testnet = Arbitrum Sepolia. Awaiting external audit engagement.
 
 ---
 
@@ -23,9 +23,9 @@
 - [x] RewardDistributor: Chainlink oracle integration (1×–2× emission multiplier, staleness check)
 - [x] Dynamic reward rate adjustment based on TVL in StakingPoolManager
 - [x] ResurgenceGovernance: OZ Governor + TimelockControl, 7-day voting, 4% quorum, 100k threshold
-- [x] Cross-chain contracts: LayerZeroBridge, ResurgeBridgeToken, GovernanceHub, GovernanceSpokeChain
+- [x] Cross-chain contracts: LayerZeroBridge, ResurgeBridgeToken, GovernanceHub, GovernanceSpokeChain (NOTE: LayerZero approach superseded — Phase 10 uses Chainlink CCIP instead; these contracts are reference only)
 
-### Tests (223 passing)
+### Tests (230 passing)
 - [x] ResurgeToken.test.js: ERC20Votes, ERC20Permit, ERC20Capped, burn, pausable, UUPS
 - [x] DeadCoinStakingPool.test.js: stake/unstake/claim, rewards, access control, pause, upgrade
 - [x] ResurgeStakingPool.test.js: boost, penalty, compound, delegation, access control, upgrade
@@ -41,17 +41,17 @@
 
 ### Deployment Scripts
 - [x] deployResurgenceProtocol.js (local / testnet)
-- [x] deployPolygonMainnet.js (Polygon mainnet, includes ResurgeStakingPool)
+- [x] deployPolygonMainnet.js (legacy Polygon script — exists; Arbitrum is now hub, use deployResurgenceProtocol.js)
 - [x] deployArbitrum.js, deployOptimism.js (L2)
 - [x] upgradePool.js, upgradeManager.js, upgradeDistributor.js
-- [x] addLiquidity.js (Quickswap V3 RESURGE/WMATIC seeding)
+- [x] addLiquidity.js (Quickswap V3/WMATIC — Polygon-specific; needs update for Arbitrum/Uniswap v3/ETH pair)
 - [x] proposeInitialPools.js (governance proposal for initial dead coin pools)
 - [x] voteProposal.js, queueAndExecuteProposal.js
 
 ### Frontend
 - [x] Next.js 15 + wagmi v2 + Tailwind CSS scaffold
 - [x] Wallet connection (WalletConnect, MetaMask, Coinbase)
-- [x] Network switcher dropdown (Polygon, Mumbai, Arbitrum, Optimism)
+- [x] Network switcher dropdown (Polygon, Amoy, Arbitrum, Optimism — Mumbai removed)
 - [x] Dashboard: portfolio, positions, recent activity, Claim All button, RESURGE price
 - [x] Staking Pools page: APR, TVL, user stake
 - [x] Individual Pool page: stake / unstake / claim modals
@@ -82,7 +82,7 @@
 - [x] docs/audit-scope.md (audit submission package)
 - [x] docs/security-checklist.md
 - [x] README.md (comprehensive)
-- [x] Hardhat config: Polygon, Mumbai, Arbitrum, Optimism networks
+- [x] Hardhat config: Polygon, Amoy, Arbitrum, Optimism networks (BSC, Base, Avalanche, Ethereum to be added in Phase 10)
 
 ---
 
@@ -90,13 +90,14 @@
 
 ### External gates (require action outside the repo)
 - [ ] **Engage professional audit firm** — CertiK, ConsenSys Diligence, OpenZeppelin, or Halborn. Budget $15k–$80k. Submit `docs/audit-scope.md`.
-- [ ] **Mumbai testnet rehearsal** — full dry run of `deployPolygonMainnet.js` on Mumbai before mainnet
+- [x] **Arbitrum Sepolia testnet rehearsal** — contracts deployed, subgraph live (indexing), frontend live at resurge.baals.network
 - [ ] **Launch Immunefi bug bounty** — after audit completes. Tiers defined in `docs/security-checklist.md`.
-- [ ] **Mainnet deployment** — deploy to Polygon after audit passes
+- [ ] **Arbitrum mainnet deployment** — deploy hub contracts after audit passes
+- [ ] **Multi-chain spoke deployment** — deploy StakingPoolManager + CrossChainSender on Polygon, BSC, Base (Phase 10)
 - [ ] **Set up initial dead coin pools** — run `scripts/proposeInitialPools.js` post-mainnet
-- [ ] **Seed DEX liquidity** — run `scripts/addLiquidity.js` with MATIC + RESURGE treasury allocation
+- [ ] **Seed DEX liquidity** — Uniswap v3 or Camelot RESURGE/ETH pool on Arbitrum
 - [ ] **Wire monitoring** — import `monitoring/tenderly-alerts.json`, `monitoring/defender-sentinel.json`, deploy Forta bot
-- [ ] **Deploy frontend to IPFS** — run `npm run build` in `frontend/`, deploy `out/` to Fleek
+- [ ] **Frontend already live** at resurge.baals.network (VPS static export via rsync; Fleek/IPFS is optional)
 
 ### Optional improvements
 - [ ] Foundry setup (`foundry.toml`) to run `test/fuzz/*.t.sol` fuzz tests

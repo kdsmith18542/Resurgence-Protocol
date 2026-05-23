@@ -20,7 +20,8 @@ interface IDeadCoinStakingPool {
         address _resurgenceTokenAddress,
         address _rewardDistributorAddress,
         address _stakingPoolManagerAddress,
-        address _timelock
+        address _timelock,
+        address _treasury
     ) external;
     function setRewardRate(uint256 _newRatePerSecond) external;
     function pause() external;
@@ -124,7 +125,8 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
     function addStakingPool(
         address _deadCoinAddress, 
         uint256 _initialRewardRatePerSecond,
-        address _timelock
+        address _timelock,
+        address _treasury
     ) 
         public 
         onlyRole(TIMELOCK_ROLE) 
@@ -132,7 +134,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         returns (address newPoolAddress) 
     {
         if (deadCoinToPoolAddress[_deadCoinAddress] != address(0)) revert StakingPoolManager_PoolExists();
-        if (_timelock == address(0) || _deadCoinAddress == address(0)) revert StakingPoolManager_InvalidAddress();
+        if (_timelock == address(0) || _deadCoinAddress == address(0) || _treasury == address(0)) revert StakingPoolManager_InvalidAddress();
         
         // Deploy the new pool proxy using ERC1967
         bytes memory initData = abi.encodeWithSelector(
@@ -141,7 +143,8 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
             resurgenceTokenAddress,
             rewardDistributorAddress,
             address(this),
-            _timelock
+            _timelock,
+            _treasury
         );
 
         ERC1967Proxy proxy = new ERC1967Proxy(stakingPoolImplementation, initData);

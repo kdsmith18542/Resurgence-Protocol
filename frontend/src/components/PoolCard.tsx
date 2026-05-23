@@ -5,12 +5,13 @@ import Link from 'next/link';
 
 interface PoolCardProps {
   pool: PoolInfo;
+  isSpoke?: boolean;
   onStake?: () => void;
   onUnstake?: () => void;
   onClaim?: () => void;
 }
 
-export default function PoolCard({ pool, onStake, onUnstake, onClaim }: PoolCardProps) {
+export default function PoolCard({ pool, isSpoke, onStake, onUnstake, onClaim }: PoolCardProps) {
   const apr = formatAPR(pool.rewardRate, pool.totalStaked);
 
   return (
@@ -54,8 +55,8 @@ export default function PoolCard({ pool, onStake, onUnstake, onClaim }: PoolCard
         <button onClick={onUnstake} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">
           Unstake
         </button>
-        <button onClick={onClaim} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">
-          Claim
+        <button onClick={onClaim} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition-colors ${isSpoke ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+          {isSpoke ? 'Bridge Claim' : 'Claim'}
         </button>
       </div>
     </div>

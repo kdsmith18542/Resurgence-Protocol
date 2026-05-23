@@ -28,7 +28,7 @@ const GOVERNANCE_ABI = [
 ];
 
 const MANAGER_ABI = [
-  "function addStakingPool(address _deadCoinAddress, uint256 _initialRewardRatePerSecond, address _timelock) returns (address)",
+  "function addStakingPool(address _deadCoinAddress, uint256 _initialRewardRatePerSecond, address _timelock, address _treasury) returns (address)",
 ];
 
 const DEFAULT_RATE = (10n ** 15n).toString(); // 1e15 wei/sec ≈ 86.4 RESURGE/day
@@ -87,7 +87,7 @@ async function main() {
   const targets   = deadCoins.map(() => managerAddress);
   const values    = deadCoins.map(() => 0n);
   const calldatas = deadCoins.map((coin, i) =>
-    iface.encodeFunctionData("addStakingPool", [coin, rates[i], timelockAddress])
+    iface.encodeFunctionData("addStakingPool", [coin, rates[i], timelockAddress, timelockAddress])
   );
 
   const description = [

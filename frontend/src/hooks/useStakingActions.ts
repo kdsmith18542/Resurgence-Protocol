@@ -50,6 +50,21 @@ export function useClaimRewards(poolAddress: `0x${string}`) {
   return { claimRewards, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
+export function useBridgeClaim(poolAddress: `0x${string}`) {
+  const queryClient = useQueryClient();
+  const { data: hash, isPending, writeContract } = useWriteContract();
+
+  const bridgeClaim = async () => {
+    writeContract({ abi: ABIS.DeadCoinStakingPool, address: poolAddress, functionName: 'bridgeClaim' });
+  };
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash, query: { enabled: !!hash } });
+
+  if (isSuccess) queryClient.invalidateQueries();
+
+  return { bridgeClaim, isPending: isPending || isConfirming, isSuccess, hash };
+}
+
 export function useApproveToken(tokenAddress: `0x${string}`, spender: `0x${string}`) {
   const queryClient = useQueryClient();
   const { data: hash, isPending, writeContract } = useWriteContract();

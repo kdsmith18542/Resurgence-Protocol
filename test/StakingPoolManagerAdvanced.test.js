@@ -67,17 +67,17 @@ describe("StakingPoolManager Advanced (Batch + Dynamic Rates)", function () {
     beforeEach(async function () {
       // Add 3 pools
       const tx1 = await manager.connect(timelock).addStakingPool(
-        await deadCoin1.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin1.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       const r1 = await tx1.wait();
 
       const tx2 = await manager.connect(timelock).addStakingPool(
-        await deadCoin2.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin2.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx2.wait();
 
       const tx3 = await manager.connect(timelock).addStakingPool(
-        await deadCoin3.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin3.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx3.wait();
 
@@ -190,7 +190,7 @@ describe("StakingPoolManager Advanced (Batch + Dynamic Rates)", function () {
       );
 
       const tx = await manager.connect(timelock).addStakingPool(
-        await deadCoin1.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin1.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx.wait();
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
@@ -219,7 +219,7 @@ describe("StakingPoolManager Advanced (Batch + Dynamic Rates)", function () {
       );
 
       const tx = await manager.connect(timelock).addStakingPool(
-        await deadCoin1.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin1.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx.wait();
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
@@ -240,11 +240,11 @@ describe("StakingPoolManager Advanced (Batch + Dynamic Rates)", function () {
       await manager.connect(timelock).setDynamicRateEnabled(true);
 
       const tx1 = await manager.connect(timelock).addStakingPool(
-        await deadCoin1.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin1.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx1.wait();
       const tx2 = await manager.connect(timelock).addStakingPool(
-        await deadCoin2.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin2.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx2.wait();
 
@@ -271,7 +271,7 @@ describe("StakingPoolManager Advanced (Batch + Dynamic Rates)", function () {
       );
 
       const tx = await manager.connect(timelock).addStakingPool(
-        await deadCoin1.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin1.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx.wait();
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());
@@ -299,7 +299,7 @@ describe("StakingPoolManager Advanced (Batch + Dynamic Rates)", function () {
       await manager.connect(timelock).setDynamicRateEnabled(true);
       
       const tx = await manager.connect(timelock).addStakingPool(
-        await deadCoin1.getAddress(), REWARD_RATE, timelock.address
+        await deadCoin1.getAddress(), REWARD_RATE, timelock.address, timelock.address
       );
       await tx.wait();
       const poolAddress = await manager.deadCoinToPoolAddress(await deadCoin1.getAddress());

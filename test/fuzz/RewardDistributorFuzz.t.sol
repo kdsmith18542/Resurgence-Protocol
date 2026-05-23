@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../contracts/ResurgeToken.sol";
 import "../../contracts/RewardDistributor.sol";
 import "../../contracts/MockOracle.sol";
@@ -29,16 +30,20 @@ contract RewardDistributorFuzzTest is Test {
         executors[0] = admin;
         timelock = new ResurgenceTimelockController(3600, proposers, executors, admin);
 
-        token = new ResurgeToken();
-        token.initialize(admin, INITIAL_CAP);
+        token = ResurgeToken(address(new ERC1967Proxy(
+            address(new ResurgeToken()),
+            abi.encodeWithSelector(ResurgeToken.initialize.selector, admin, INITIAL_CAP)
+        )));
 
-        distributor = new RewardDistributor();
-        distributor.initialize(address(token), MAX_MINT, address(timelock));
+        distributor = RewardDistributor(address(new ERC1967Proxy(
+            address(new RewardDistributor()),
+            abi.encodeWithSelector(RewardDistributor.initialize.selector, address(token), MAX_MINT, address(timelock))
+        )));
         
-        oracle = new MockOracle();
+        oracle = new MockOracle(5000000, 8);
         
         distributor.grantRole(distributor.TIMELOCK_ROLE(), admin);
-        distributor.setPriceOracle(address(oracle));
+        distributor.setPriceOracle(address(oracle), 3600);
         distributor.authorizeStakingPool(pool);
         
         token.grantRole(token.MINTER_ROLE(), address(distributor));
@@ -78,11 +83,8 @@ contract RewardDistributorFuzzTest is Test {
         } else if (price >= 15000000) {
             assertEq(multiplier, 20000); // 2x cap
         } else {
-            // 10% per $0.01 above $0.05
-            // diff = price - 5000000
-            // centsAbove = diff / 1000000
-            // multiplier = 10000 + (centsAbove * 1000)
-            uint256 expected = 10000 + ((price - 5000000) / 1000000) * 1000;
+            // 10% per $0.01 above $0.05 (multiplies before dividing for precision)
+            uint256 expected = 10000 + ((price - 5000000) * 1000) / 1000000;
             assertEq(multiplier, expected);
         }
     }

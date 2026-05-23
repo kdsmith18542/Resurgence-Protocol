@@ -1,7 +1,19 @@
-const SUBGRAPH_URL = process.env.NEXT_PUBLIC_SUBGRAPH_URL;
+// Hub subgraph (Arbitrum Sepolia / Arbitrum One)
+const HUB_SUBGRAPH_URL = process.env.NEXT_PUBLIC_SUBGRAPH_URL;
 
-function getSubgraphUrl(): string {
-  if (SUBGRAPH_URL) return SUBGRAPH_URL;
+// Per-chain subgraph URLs for spoke chains
+const SPOKE_SUBGRAPH_URLS: Record<number, string | undefined> = {
+  80002:  process.env.NEXT_PUBLIC_AMOY_SUBGRAPH_URL,
+  97:     process.env.NEXT_PUBLIC_BSC_TESTNET_SUBGRAPH_URL,
+  84532:  process.env.NEXT_PUBLIC_BASE_SEPOLIA_SUBGRAPH_URL,
+  56:     process.env.NEXT_PUBLIC_BSC_SUBGRAPH_URL,
+  8453:   process.env.NEXT_PUBLIC_BASE_SUBGRAPH_URL,
+  137:    process.env.NEXT_PUBLIC_POLYGON_SUBGRAPH_URL,
+};
+
+export function getSubgraphUrl(chainId?: number): string | null {
+  if (chainId && SPOKE_SUBGRAPH_URLS[chainId]) return SPOKE_SUBGRAPH_URLS[chainId]!;
+  if (HUB_SUBGRAPH_URL) return HUB_SUBGRAPH_URL;
   if (typeof window !== 'undefined') return '/api/subgraph';
   return 'http://localhost:3000/api/subgraph';
 }
@@ -11,8 +23,9 @@ interface SubgraphResponse<T> {
   errors?: Array<{ message: string }>;
 }
 
-async function query<T>(queryString: string): Promise<T | null> {
-  const url = getSubgraphUrl();
+async function query<T>(queryString: string, chainId?: number): Promise<T | null> {
+  const url = getSubgraphUrl(chainId);
+  if (!url) return null;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -83,7 +96,7 @@ export interface SubgraphPoolWithPosition extends SubgraphPool {
   };
 }
 
-export async function fetchPools(): Promise<SubgraphPool[]> {
+export async function fetchPools(chainId?: number): Promise<SubgraphPool[]> {
   return query(`
     {
       stakingPools(first: 100, orderBy: createdAt, orderDirection: desc) {
@@ -97,10 +110,10 @@ export async function fetchPools(): Promise<SubgraphPool[]> {
         stakerCount
       }
     }
-  `).then((d: any) => d?.stakingPools || []);
+  `, chainId).then((d: any) => d?.stakingPools || []);
 }
 
-export async function fetchPoolsWithUserPosition(userAddress: string): Promise<SubgraphPoolWithPosition[]> {
+export async function fetchPoolsWithUserPosition(userAddress: string, chainId?: number): Promise<SubgraphPoolWithPosition[]> {
   return query(`
     {
       stakingPools(first: 100, orderBy: createdAt, orderDirection: desc) {
@@ -114,7 +127,7 @@ export async function fetchPoolsWithUserPosition(userAddress: string): Promise<S
         stakerCount
       }
     }
-  `).then(async (d: any) => {
+  `, chainId).then(async (d: any) => {
     const pools: SubgraphPoolWithPosition[] = d?.stakingPools || [];
     if (userAddress && pools.length > 0) {
       const poolIds = pools.map((p: any) => `"${p.id}"`).join(',');
@@ -126,7 +139,7 @@ export async function fetchPoolsWithUserPosition(userAddress: string): Promise<S
             unclaimedRewards
           }
         }
-      `);
+      `, chainId);
       const positions: any[] = posData?.stakingPositions || [];
       const posMap = new Map(positions.map((p: any) => [p.pool.id, p]));
       pools.forEach((pool: SubgraphPoolWithPosition) => {

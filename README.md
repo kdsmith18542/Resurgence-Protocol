@@ -4,7 +4,7 @@
 
 Stake "dead coins" — tokens from failed or abandoned projects — and earn **RESURGE**, the protocol's native governance and rewards token. The protocol is fully on-chain, upgradeable via UUPS proxies, and governed by RESURGE holders through a time-locked DAO.
 
-> **Status:** Pre-audit. 223 tests passing. Polygon mainnet deployment scripts ready. Do not deposit significant value until a professional audit is complete.
+> **Status:** Pre-audit. 223 tests passing. Arbitrum mainnet is the target hub chain. Do not deposit significant value until a professional audit is complete.
 
 ---
 
@@ -130,32 +130,33 @@ npx hardhat test test/ResurgeToken.test.js
 npx hardhat run scripts/deployResurgenceProtocol.js --network localhost
 ```
 
-### Polygon Amoy (testnet rehearsal — do this first)
+### Arbitrum Sepolia (testnet — do this first)
 ```bash
-npx hardhat run scripts/deployPolygonMainnet.js --network amoy
+npx hardhat run scripts/deployResurgenceProtocol.js --network arbitrumSepolia
 ```
 
-### Polygon Mainnet
+### Arbitrum Mainnet (hub chain)
 ```bash
-npx hardhat run scripts/deployPolygonMainnet.js --network polygon
+npx hardhat run scripts/deployResurgenceProtocol.js --network arbitrum
 ```
 
-### L2s
+### Spoke chains (after hub is deployed)
 ```bash
-npx hardhat run scripts/deployArbitrum.js --network arbitrum
-npx hardhat run scripts/deployOptimism.js --network optimism
+npx hardhat run scripts/deploySpoke.js --network polygon
+npx hardhat run scripts/deploySpoke.js --network bsc
+npx hardhat run scripts/deploySpoke.js --network base
 ```
 
 ### Post-deployment steps
-1. **Seed DEX liquidity** — `scripts/addLiquidity.js` (Quickswap V3 RESURGE/WMATIC pool)
+1. **Seed DEX liquidity** — `scripts/addLiquidity.js` (Uniswap v3 or Camelot RESURGE/ETH on Arbitrum)
 2. **Deploy initial dead coin pools** — `scripts/proposeInitialPools.js`
 3. **Vote → Queue → Execute** — `scripts/voteProposal.js`, `scripts/queueAndExecuteProposal.js`
 
 ### Contract upgrades
 ```bash
-PROXY_ADDRESS=0x... npx hardhat run scripts/upgradePool.js --network polygon
-PROXY_ADDRESS=0x... npx hardhat run scripts/upgradeManager.js --network polygon
-PROXY_ADDRESS=0x... npx hardhat run scripts/upgradeDistributor.js --network polygon
+PROXY_ADDRESS=0x... npx hardhat run scripts/upgradePool.js --network arbitrum
+PROXY_ADDRESS=0x... npx hardhat run scripts/upgradeManager.js --network arbitrum
+PROXY_ADDRESS=0x... npx hardhat run scripts/upgradeDistributor.js --network arbitrum
 ```
 
 ---

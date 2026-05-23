@@ -294,6 +294,7 @@ describe("ResurgenceGovernance", function () {
       const calldatas = [manager.interface.encodeFunctionData("addStakingPool", [
         await newDeadCoin.getAddress(),
         ethers.parseEther("1"),
+        await timelockController.getAddress(),
         await timelockController.getAddress()
       ])];
       const description = "Proposal #1: Add New Dead Coin (NDC) Staking Pool";

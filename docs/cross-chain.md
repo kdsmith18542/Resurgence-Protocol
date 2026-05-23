@@ -1,136 +1,139 @@
 # Resurgence Protocol — Cross-Chain Strategy
 
-## Overview
+**Decision locked**: Chainlink CCIP — hub on Arbitrum, spokes on Polygon/BSC/Base/Ethereum/Optimism/Avalanche.
 
-This document outlines the cross-chain expansion strategy for Resurgence Protocol, enabling Proof-of-Dormancy staking across multiple EVM chains with unified governance.
+> The earlier LayerZero evaluation is superseded by this document. `contracts/crosschain/LayerZeroBridge.sol` and related files are retained as reference but are not part of the production architecture.
 
-## Bridge Protocol Evaluation
+---
 
-### LayerZero (Recommended Primary)
+## Why CCIP Over LayerZero
 
-**Strengths:**
-- Omnichain messaging protocol with ultra-light nodes
-- Largest ecosystem (50+ chains supported)
-- Configurable decentralized verifier networks (DVNs)
-- OApp (Omnichain Application) pattern maps well to our architecture
-- Strong security track record, multiple audits
-- Native OFT (Omnichain Fungible Token) for RESURGE bridging
+We already use Chainlink for the price oracle in `RewardDistributor`. CCIP extends that to cross-chain messaging under the same trust model — one vendor, one security assumption, one audit scope. LayerZero DVN trust assumptions require a separate evaluation; CCIP's Risk Management Network is an established, audited layer with battle-tested deployments.
 
-**Integration approach:**
-- Deploy ResurgeToken as OFT on each chain
-- Use LayerZero messaging for cross-chain governance vote aggregation
-- Cross-chain reward distribution via OFT burn/mint pattern
-- Unified StakingPoolManager state synced via LayerZero messages
+---
 
-**Fees:** ~$0.01-0.10 per message on L2s
-
-### Axelar (Secondary Option)
-
-**Strengths:**
-- General Message Passing (GMP) with proof-of-stake security
-- Interchain Token Service (ITS) for native cross-chain tokens
-- Strong enterprise partnerships
-- Gas-efficient on L2s
-
-**Considerations:**
-- Smaller validator set than some alternatives
-- Less mature ecosystem than LayerZero
-
-### Wormhole (Tertiary Option)
-
-**Strengths:**
-- Guardian network with 19 validators
-- Native Token Bridge (NTB)
-- Strong Solana support for future non-EVM expansion
-
-**Considerations:**
-- Higher gas costs per message
-- Guardian set requires high trust assumptions
-- Slower message delivery (30-60s vs 5-15s for LayerZero)
-
-## Architecture Design
-
-### Phase 1: Multi-Chain Independent Deployment
-
-Deploy full protocol stack on each chain independently:
-- Polygon (primary/mainnet)
-- Arbitrum
-- Optimism
-
-Each chain operates independently with its own:
-- RESURGE token (separate supply per chain)
-- Staking pools
-- Governance (chain-specific proposals)
-
-### Phase 2: Unified Governance (via LayerZero)
+## Architecture
 
 ```
-┌─────────────────┐     LayerZero      ┌─────────────────┐
-│  Polygon Gov     │◄──────────────────►│  Arbitrum Gov    │
-│  (Hub Chain)     │   Cross-chain msgs │  (Spoke Chain)   │
-└────────┬─────────┘                    └────────┬─────────┘
-         │                                       │
-    Polygon Pools                          Arbitrum Pools
+HUB (Arbitrum One — chain ID 42161)
+├── ResurgeToken          ERC-20, ERC20Votes, UUPS — sole minting authority
+├── RewardDistributor     mintAndDistribute() + mintForBridge() for cross-chain claims
+├── CrossChainReceiver    CCIPReceiver — validates spoke messages, triggers mint
+├── ResurgenceGovernance  OZ Governor — governs all chains via Timelock
+├── TimelockController    ≥1hr delay on all privileged ops
+└── ResurgeStakingPool    RESURGE native staking (hub only)
+
+SPOKE (each additional chain)
+├── StakingPoolManager    deploys and manages DeadCoinStakingPool instances
+├── DeadCoinStakingPool   per-second accrual; bridgeClaim() zeroes debt and sends CCIP msg
+└── CrossChainSender      CCIPSender — batches reward claims, sends to hub; pays LINK fees
 ```
 
-- Polygon serves as governance hub
-- Cross-chain proposals broadcast to all chains
-- Vote aggregation across chains
-- Unified execution with chain-specific delays
+### Reward Flow
 
-### Phase 3: Cross-Chain RESURGE (OFT)
+```
+User stakes dead tokens on BSC
+    → accrues reward debt in DeadCoinStakingPool (local, no minting)
+    → calls bridgeClaim()
+    → CrossChainSender sends CCIP message: {user, amount} to Arbitrum hub
+    → CrossChainReceiver validates source chain + sender
+    → calls RewardDistributor.mintForBridge(user, amount)
+    → RESURGE minted on Arbitrum to user's address
+    → user bridges RESURGE back via CCIP token pool if desired
+```
 
-- RESURGE becomes omnichain via LayerZero OFT
-- Users can bridge RESURGE between chains
-- Unified token supply across all chains
-- Cross-chain staking: stake on one chain, earn on another
+### Token Model
 
-## Implementation Plan
+RESURGE is minted **exclusively on Arbitrum**. Spokes accumulate reward debt locally — no RESURGE exists on spoke chains until a user bridges it back. This keeps total supply control fully on the hub.
 
-### Step 1: Testnet Deployment (Week 1-2)
-- Deploy full protocol on Arbitrum Sepolia
-- Deploy full protocol on Optimism Sepolia
-- Verify all contracts
-- Deploy subgraph for each chain
+---
 
-### Step 2: LayerZero Integration (Week 3-4)
-- Create `contracts/crosschain/CrossChainGovernor.sol`
-- Implement OApp for governance messaging
-- Create `contracts/crosschain/ResurgeOFT.sol` (OFT wrapper for RESURGE)
-- Test cross-chain proposal creation and execution
+## Target Networks
 
-### Step 3: Unified Frontend (Week 5-6)
-- Multi-chain wallet support
-- Chain selector in dApp
-- Aggregated dashboard showing positions across chains
-- Cross-chain bridging UI
+| Tier | Chain | Chain ID | Role | Rationale |
+|------|-------|----------|------|-----------|
+| Hub | Arbitrum | 42161 | Hub | ETH rollup security, deepest L2 DeFi TVL |
+| 1 | Polygon | 137 | Spoke | Largest dead ICO token graveyard (2020-2022) |
+| 1 | BSC | 56 | Spoke | Highest retail dead token count |
+| 1 | Base | 8453 | Spoke | Coinbase distribution, growing ecosystem |
+| 2 | Ethereum | 1 | Spoke | Original 2017-2019 ICO graveyard, highest-value dead tokens |
+| 2 | Optimism | 10 | Spoke | Blue-chip dead tokens, OP Stack ecosystem |
+| 2 | Avalanche | 43114 | Spoke | Dead AVAX ecosystem tokens |
+| 3 | Fantom, Cronos, Moonbeam | — | Future | Dead DeFi / ecosystem tokens |
 
-### Step 4: Mainnet Expansion (Week 7-8)
-- Deploy to Arbitrum One mainnet
-- Deploy to Optimism mainnet
-- Enable cross-chain governance
-- Launch RESURGE bridge
+---
+
+## New Contracts (Phase 10)
+
+### `CrossChainReceiver.sol` (hub — Arbitrum)
+
+```solidity
+// Inherits Chainlink CCIPReceiver
+// - Stores authorizedSpokes mapping (chainSelector => senderAddress)
+// - _ccipReceive() validates source, decodes (address user, uint256 amount)
+// - Calls RewardDistributor.mintForBridge(user, amount)
+// - Emits RewardBridged(sourceChain, user, amount)
+```
+
+### `CrossChainSender.sol` (each spoke)
+
+```solidity
+// Inherits Chainlink CCIPSender
+// - Called by DeadCoinStakingPool.bridgeClaim()
+// - Encodes (user, amount) and sends to hub CrossChainReceiver
+// - Pays LINK fee from contract balance (governance tops up LINK)
+// - configurable: destinationChainSelector, receiverAddress
+```
+
+### `RewardDistributor.sol` changes
+
+```solidity
+// Add:
+mapping(address => bool) public authorizedBridges;
+function mintForBridge(address user, uint256 amount) external onlyAuthorizedBridge { ... }
+function setAuthorizedBridge(address bridge, bool authorized) external onlyRole(TIMELOCK_ROLE) { ... }
+```
+
+### `DeadCoinStakingPool.sol` changes
+
+```solidity
+// Add alongside existing claimRewards():
+function bridgeClaim() external whenNotPaused updateReward(msg.sender) nonReentrant {
+    uint256 rewards = userRewards[msg.sender];
+    if (rewards == 0) revert InvalidAmount();
+    userRewards[msg.sender] = 0;
+    emit RewardsClaimed(msg.sender, rewards);
+    ICrossChainSender(crossChainSender).sendRewardClaim(msg.sender, rewards);
+}
+// Hub chain pools: claimRewards() path unchanged (no bridging needed)
+```
+
+---
 
 ## Security Considerations
 
-1. **Message verification**: All cross-chain messages verified by LayerZero DVNs
-2. **Rate limiting**: Maximum value per cross-chain transaction enforced
-3. **Timelock integration**: Cross-chain proposals subject to Timelock delays on each chain
-4. **Emergency pause**: Cross-chain pauser role for emergency shutdown
-5. **Replay protection**: LayerZero nonce-based replay protection built in
+1. **Source validation**: CrossChainReceiver checks both `sourceChainSelector` and `sender` address — not just one
+2. **Message deduplication**: CCIP message IDs are unique; store processed IDs to prevent replay
+3. **LINK funding**: CrossChainSender holds LINK for fees; governance controls top-up; emit alert when balance < threshold
+4. **Rate limiting**: Max claim per tx to limit damage from a compromised spoke
+5. **Timelock on bridge registration**: Adding/removing authorized spokes requires TIMELOCK_ROLE → governance vote
+6. **Emergency pause**: Hub CrossChainReceiver can be paused independently of staking contracts
+
+---
 
 ## Gas Cost Estimates
 
-| Operation | Polygon | Arbitrum | Optimism |
-|-----------|---------|----------|----------|
-| Deploy stack | ~$5 | ~$15 | ~$10 |
-| Cross-chain proposal | ~$0.50 | ~$2.00 | ~$1.50 |
-| Bridge RESURGE (OFT) | ~$0.30 | ~$1.50 | ~$1.00 |
-| Stake/Unstake | ~$0.05 | ~$0.30 | ~$0.20 |
+| Operation | Cost |
+|-----------|------|
+| CCIP message (spoke → hub) | ~0.1–0.5 LINK (~$1–5 at current prices) |
+| Stake/Unstake (spoke) | ~$0.05–0.30 depending on chain |
+| Stake/Unstake (Arbitrum hub) | ~$0.10–0.50 |
+| LINK top-up frequency | Estimate 1 LINK per ~100 bridge claims |
 
-## References
+---
 
-- [LayerZero Docs](https://docs.layerzero.network)
-- [Axelar Docs](https://docs.axelar.dev)
-- [Wormhole Docs](https://docs.wormhole.com)
-- [OpenZeppelin Cross-Chain Governance](https://docs.openzeppelin.com/contracts/5.x/crosschain)
+## CCIP References
+
+- Router addresses and chain selectors: see `plan.md` CCIP section
+- Token admin registry (for RESURGE cross-chain token): docs.chain.link/ccip/concepts/cross-chain-tokens
+- CCIP explorer (monitor messages): ccip.chain.link

@@ -69,6 +69,7 @@ describe("Integration: Full Protocol Lifecycle (Upgradeable)", function () {
     const tx = await stakingPoolManager.connect(owner).addStakingPool(
       await deadCoin.getAddress(),
       REWARD_RATE,
+      owner.address,
       owner.address
     );
     await tx.wait();

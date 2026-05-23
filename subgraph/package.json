@@ -10,6 +10,18 @@
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 resurgence-protocol",
     "create-vps": "graph create --node http://localhost:8020/ resurgence-protocol",
     "deploy-vps": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5002 resurgence-protocol",
+    "codegen-bsc-testnet": "graph codegen subgraph.bscTestnet.yaml",
+    "build-bsc-testnet": "graph build subgraph.bscTestnet.yaml",
+    "create-vps-bsc-testnet": "graph create --node http://localhost:8020/ resurgence-bsc-testnet",
+    "deploy-vps-bsc-testnet": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5002 resurgence-bsc-testnet subgraph.bscTestnet.yaml",
+    "codegen-base-sepolia": "graph codegen subgraph.baseSepolia.yaml",
+    "build-base-sepolia": "graph build subgraph.baseSepolia.yaml",
+    "create-vps-base-sepolia": "graph create --node http://localhost:8020/ resurgence-base-sepolia",
+    "deploy-vps-base-sepolia": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5002 resurgence-base-sepolia subgraph.baseSepolia.yaml",
+    "codegen-amoy": "graph codegen subgraph.amoy.yaml",
+    "build-amoy": "graph build subgraph.amoy.yaml",
+    "create-vps-amoy": "graph create --node http://localhost:8020/ resurgence-amoy",
+    "deploy-vps-amoy": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5002 resurgence-amoy subgraph.amoy.yaml",
     "test": "graph test"
   },
   "devDependencies": {

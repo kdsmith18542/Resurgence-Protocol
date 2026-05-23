@@ -13,11 +13,16 @@ interface IRewardDistributor {
     function authorizedStakingPools(address pool) external view returns (bool);
 }
 
+interface ICrossChainSender {
+    function sendRewardClaim(address user, uint256 amount) external returns (bytes32 messageId);
+}
+
 // Custom errors for gas efficiency
 error InvalidAmount();
 error InsufficientBalance();
 error TransferFailed();
 error RewardMintingFailed();
+error BridgeNotConfigured();
 
 /// @title DeadCoinStakingPool - Proof-of-Dormancy staking pool for individual dead coins
 /// @notice Manages staking and reward distribution for a single "dead coin"
@@ -47,10 +52,19 @@ contract DeadCoinStakingPool is
 
     uint256 public totalStakedSupply;
 
+    uint256 public protocolFeeBps;
+    address public treasury;
+    address public crossChainSender;
+
     event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
     event RewardRateUpdated(uint256 newRatePerSecond);
+    event ProtocolFeeUpdated(uint256 oldBps, uint256 newBps);
+    event TreasuryUpdated(address indexed newTreasury);
+    event ProtocolFeePaid(address indexed pool, address indexed treasury, uint256 amount);
+    event BridgeClaimed(address indexed user, uint256 amount, bytes32 messageId);
+    event CrossChainSenderUpdated(address indexed newSender);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -63,14 +77,16 @@ contract DeadCoinStakingPool is
     /// @param _rewardDistributorAddress The central reward distributor
     /// @param _stakingPoolManagerAddress The manager that deployed this pool
     /// @param _timelock The governance timelock
+    /// @param _treasury The protocol fee treasury
     function initialize(
         address _deadCoinAddress,
         address _resurgenceTokenAddress,
         address _rewardDistributorAddress,
         address _stakingPoolManagerAddress,
-        address _timelock
+        address _timelock,
+        address _treasury
     ) public initializer {
-        if (_deadCoinAddress == address(0) || _resurgenceTokenAddress == address(0) || _rewardDistributorAddress == address(0) || _stakingPoolManagerAddress == address(0) || _timelock == address(0)) {
+        if (_deadCoinAddress == address(0) || _resurgenceTokenAddress == address(0) || _rewardDistributorAddress == address(0) || _stakingPoolManagerAddress == address(0) || _timelock == address(0) || _treasury == address(0)) {
             revert InvalidAmount();
         }
 
@@ -81,6 +97,8 @@ contract DeadCoinStakingPool is
         resurgenceToken = IERC20(_resurgenceTokenAddress);
         rewardDistributor = _rewardDistributorAddress;
         stakingPoolManager = _stakingPoolManagerAddress;
+        treasury = _treasury;
+        protocolFeeBps = 1000;
         
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
@@ -166,7 +184,22 @@ contract DeadCoinStakingPool is
         
         if (rewards > 0) {
             userRewards[msg.sender] = 0;
-            bool success = IRewardDistributor(rewardDistributor).mintAndDistribute(msg.sender, rewards);
+            
+            uint256 fee = 0;
+            uint256 userAmount = rewards;
+            if (protocolFeeBps > 0 && treasury != address(0)) {
+                fee = (rewards * protocolFeeBps) / 10000;
+                userAmount = rewards - fee;
+            }
+
+            bool success;
+            if (fee > 0) {
+                success = IRewardDistributor(rewardDistributor).mintAndDistribute(treasury, fee);
+                if (!success) revert RewardMintingFailed();
+                emit ProtocolFeePaid(address(this), treasury, fee);
+            }
+
+            success = IRewardDistributor(rewardDistributor).mintAndDistribute(msg.sender, userAmount);
             if (!success) revert RewardMintingFailed();
             
             emit RewardsClaimed(msg.sender, rewards);
@@ -181,11 +214,26 @@ contract DeadCoinStakingPool is
         
         if (rewards > 0) {
             userRewards[_user] = 0;
+            
+            uint256 fee = 0;
+            uint256 userAmount = rewards;
+            if (protocolFeeBps > 0 && treasury != address(0)) {
+                fee = (rewards * protocolFeeBps) / 10000;
+                userAmount = rewards - fee;
+            }
+
+            bool success;
+            if (fee > 0) {
+                success = IRewardDistributor(rewardDistributor).mintAndDistribute(treasury, fee);
+                if (!success) revert RewardMintingFailed();
+                emit ProtocolFeePaid(address(this), treasury, fee);
+            }
+
             // Mint to this pool, then transfer to user
-            bool success = IRewardDistributor(rewardDistributor).mintAndDistribute(address(this), rewards);
+            success = IRewardDistributor(rewardDistributor).mintAndDistribute(address(this), userAmount);
             if (!success) revert RewardMintingFailed();
             
-            if (!resurgenceToken.transfer(_user, rewards)) revert TransferFailed();
+            if (!resurgenceToken.transfer(_user, userAmount)) revert TransferFailed();
             
             emit RewardsClaimed(_user, rewards);
         }
@@ -202,16 +250,53 @@ contract DeadCoinStakingPool is
         if (rewards == 0) revert InvalidAmount();
 
         userRewards[msg.sender] = 0;
-        bool success = IRewardDistributor(rewardDistributor).mintAndDistribute(address(this), rewards);
+
+        uint256 fee = 0;
+        uint256 userAmount = rewards;
+        if (protocolFeeBps > 0 && treasury != address(0)) {
+            fee = (rewards * protocolFeeBps) / 10000;
+            userAmount = rewards - fee;
+        }
+
+        bool success;
+        if (fee > 0) {
+            success = IRewardDistributor(rewardDistributor).mintAndDistribute(treasury, fee);
+            if (!success) revert RewardMintingFailed();
+            emit ProtocolFeePaid(address(this), treasury, fee);
+        }
+
+        success = IRewardDistributor(rewardDistributor).mintAndDistribute(address(this), userAmount);
         if (!success) revert RewardMintingFailed();
 
         emit RewardsClaimed(msg.sender, rewards);
 
-        resurgenceToken.approve(_resurgeStakingPool, rewards);
+        resurgenceToken.approve(_resurgeStakingPool, userAmount);
         (success, ) = _resurgeStakingPool.call(
-            abi.encodeWithSignature("stakeFor(address,uint256)", msg.sender, rewards)
+            abi.encodeWithSignature("stakeFor(address,uint256)", msg.sender, userAmount)
         );
         if (!success) revert TransferFailed();
+    }
+
+    /// @notice Claims accrued rewards by bridging them to the hub chain via CCIP
+    /// @dev Only valid on spoke chains where crossChainSender is configured.
+    ///      Zeroes local debt and sends a CCIP message; RESURGE is minted on Arbitrum hub.
+    function bridgeClaim() external whenNotPaused updateReward(msg.sender) nonReentrant {
+        if (crossChainSender == address(0)) revert BridgeNotConfigured();
+
+        uint256 rewards = userRewards[msg.sender];
+        if (rewards == 0) revert InvalidAmount();
+
+        userRewards[msg.sender] = 0;
+
+        bytes32 messageId = ICrossChainSender(crossChainSender).sendRewardClaim(msg.sender, rewards);
+        emit BridgeClaimed(msg.sender, rewards, messageId);
+    }
+
+    /// @notice Sets the CrossChainSender address for spoke-chain bridge claims
+    /// @param _sender Address of the CrossChainSender on this spoke chain (address(0) to disable)
+    function setCrossChainSender(address _sender) external onlyRole(TIMELOCK_ROLE) {
+        crossChainSender = _sender;
+        emit CrossChainSenderUpdated(_sender);
     }
 
     /// @notice Sets the reward rate per second
@@ -231,6 +316,23 @@ contract DeadCoinStakingPool is
         _unpause();
     }
 
+    /// @notice Sets the protocol fee in basis points
+    /// @param _newFeeBps New protocol fee (max 3000 bps)
+    function setProtocolFee(uint256 _newFeeBps) external onlyRole(TIMELOCK_ROLE) {
+        if (_newFeeBps > 3000) revert InvalidAmount();
+        uint256 oldBps = protocolFeeBps;
+        protocolFeeBps = _newFeeBps;
+        emit ProtocolFeeUpdated(oldBps, _newFeeBps);
+    }
+
+    /// @notice Sets the treasury address
+    /// @param _newTreasury New treasury address
+    function setTreasury(address _newTreasury) external onlyRole(TIMELOCK_ROLE) {
+        if (_newTreasury == address(0)) revert InvalidAmount();
+        treasury = _newTreasury;
+        emit TreasuryUpdated(_newTreasury);
+    }
+
     /// @dev Internal function to authorize an upgrade
     /// @param newImplementation Address of the new implementation
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(TIMELOCK_ROLE) {}
@@ -238,5 +340,5 @@ contract DeadCoinStakingPool is
     /**
      * @dev Gap for future storage variables.
      */
-    uint256[50] private __gap;
+    uint256[47] private __gap;
 }

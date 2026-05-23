@@ -45,6 +45,7 @@ describe("Security Integration", function () {
     const tx = await stakingPoolManager.connect(timelock).addStakingPool(
       await deadCoin.getAddress(),
       ethers.parseEther("1"),
+      timelock.address,
       timelock.address
     );
     const receipt = await tx.wait();

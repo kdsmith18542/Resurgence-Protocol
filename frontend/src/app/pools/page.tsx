@@ -1,5 +1,5 @@
 'use client';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import { useReadContracts } from 'wagmi';
 import { useState, useEffect, useMemo } from 'react';
 import { PoolInfo } from '@/types';
@@ -11,19 +11,31 @@ import { LoadingSpinner } from '@/components/StateComponents';
 import { useErc20Balance } from '@/hooks/useTokenData';
 import { ABIS } from '@/lib/abis';
 import { formatUSD } from '@/lib/utils';
-import { fetchPoolsWithUserPosition } from '@/lib/graphql';
+import { fetchPoolsWithUserPosition, getSubgraphUrl } from '@/lib/graphql';
+import { isSpokeChain, CHAIN_NAMES } from '@/lib/contracts';
 
 export default function PoolsPage() {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const [stakePool, setStakePool] = useState<PoolInfo | null>(null);
   const [unstakePool, setUnstakePool] = useState<PoolInfo | null>(null);
   const [claimPool, setClaimPool] = useState<PoolInfo | null>(null);
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isSpoke = isSpokeChain(chainId);
+  const subgraphAvailable = !!getSubgraphUrl(chainId);
+  const chainName = CHAIN_NAMES[chainId] ?? `Chain ${chainId}`;
+
   useEffect(() => {
+    setLoading(true);
+    setPools([]);
+    if (!subgraphAvailable) {
+      setLoading(false);
+      return;
+    }
     (async () => {
-      const subgraphData = await fetchPoolsWithUserPosition(address || '');
+      const subgraphData = await fetchPoolsWithUserPosition(address || '', chainId);
       if (subgraphData) {
         setPools(subgraphData.map(p => ({
           address: p.poolAddress,
@@ -42,7 +54,7 @@ export default function PoolsPage() {
       }
       setLoading(false);
     })();
-  }, [address]);
+  }, [address, chainId, subgraphAvailable]);
 
   const deadCoinAddresses = useMemo(
     () => pools.map(p => p.deadCoinAddress as `0x${string}`).filter(Boolean),
@@ -98,8 +110,18 @@ export default function PoolsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Staking Pools</h1>
-          <p className="text-gray-400 mt-1">Stake abandoned ERC-20 tokens and earn RESURGE rewards.</p>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl font-bold">Staking Pools</h1>
+            <span className={`text-xs font-bold px-2 py-1 rounded-full ${isSpoke ? 'bg-purple-900 text-purple-300' : 'bg-blue-900 text-blue-300'}`}>
+              {isSpoke ? `SPOKE · ${chainName}` : `HUB · ${chainName}`}
+            </span>
+          </div>
+          <p className="text-gray-400 mt-1">
+            {isSpoke
+              ? `Stake dead tokens on ${chainName}. Rewards bridge to Arbitrum via CCIP.`
+              : 'Stake abandoned ERC-20 tokens and earn RESURGE rewards directly.'
+            }
+          </p>
         </div>
         {displayPools.length > 0 && (
           <div className="text-right">
@@ -128,9 +150,21 @@ export default function PoolsPage() {
         </div>
       </div>
 
-      {displayPools.length === 0 ? (
+      {!subgraphAvailable ? (
         <div className="text-center py-12 bg-gray-800 rounded-xl border border-gray-700">
-          <p className="text-gray-400">No staking pools available yet.</p>
+          <p className="text-yellow-400 font-medium">Subgraph not yet indexed for {chainName}</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Spoke deployment pending. Once deployed and the subgraph is synced, pools will appear here.
+          </p>
+          {isSpoke && (
+            <p className="text-gray-600 text-xs mt-3">
+              Hub: Arbitrum One / Arbitrum Sepolia &mdash; Rewards mint there after bridge claim.
+            </p>
+          )}
+        </div>
+      ) : displayPools.length === 0 ? (
+        <div className="text-center py-12 bg-gray-800 rounded-xl border border-gray-700">
+          <p className="text-gray-400">No staking pools available yet on {chainName}.</p>
           <p className="text-gray-500 text-sm mt-2">Pools will appear here once deployed and indexed by the subgraph.</p>
         </div>
       ) : (
@@ -139,6 +173,7 @@ export default function PoolsPage() {
             <PoolCard
               key={pool.address}
               pool={pool}
+              isSpoke={isSpoke}
               onStake={() => setStakePool(pool)}
               onUnstake={() => setUnstakePool(pool)}
               onClaim={() => setClaimPool(pool)}
@@ -173,6 +208,7 @@ export default function PoolsPage() {
           onClose={() => setClaimPool(null)}
           poolAddress={claimPool.address as `0x${string}`}
           pendingRewards={claimPool.userRewards}
+          isBridgeClaim={isSpoke}
         />
       )}
     </div>

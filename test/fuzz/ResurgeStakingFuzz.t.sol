@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../contracts/ResurgeToken.sol";
 import "../../contracts/ResurgeStakingPool.sol";
 import "../../contracts/RewardDistributor.sol";
@@ -31,21 +32,24 @@ contract ResurgeStakingFuzzTest is Test {
         executors[0] = admin;
 
         timelock = new ResurgenceTimelockController(3600, proposers, executors, admin);
-        token = new ResurgeToken();
-        token.initialize(admin, INITIAL_SUPPLY);
+        token = ResurgeToken(address(new ERC1967Proxy(
+            address(new ResurgeToken()),
+            abi.encodeWithSelector(ResurgeToken.initialize.selector, admin, INITIAL_SUPPLY)
+        )));
 
-        distributor = new RewardDistributor();
-        distributor.initialize(address(token), INITIAL_SUPPLY / 2, address(timelock));
+        distributor = RewardDistributor(address(new ERC1967Proxy(
+            address(new RewardDistributor()),
+            abi.encodeWithSelector(RewardDistributor.initialize.selector, address(token), INITIAL_SUPPLY / 2, address(timelock))
+        )));
 
-        oracle = new MockOracle();
-        oracle.setPrice(5000000, 8); // $0.05
+        oracle = new MockOracle(5000000, 8);
         
-        // RewardDistributor initialization needs TIMELOCK_ROLE for some things, but initialize grants to timelock param
-        // We granted it to timelock, let's also grant to admin for setup
         distributor.grantRole(distributor.TIMELOCK_ROLE(), admin);
 
-        staking = new ResurgeStakingPool();
-        staking.initialize(address(token), address(distributor), address(timelock), INITIAL_REWARD_RATE);
+        staking = ResurgeStakingPool(address(new ERC1967Proxy(
+            address(new ResurgeStakingPool()),
+            abi.encodeWithSelector(ResurgeStakingPool.initialize.selector, address(token), address(distributor), address(timelock), INITIAL_REWARD_RATE)
+        )));
         
         // Setup roles
         token.grantRole(token.MINTER_ROLE(), address(distributor));

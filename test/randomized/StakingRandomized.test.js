@@ -46,7 +46,7 @@ describe("Staking Randomized Invariant Testing", function () {
     await distributor.authorizeStakingPool(owner.address); // For testing
     
     // Add pool
-    const tx = await manager.addStakingPool(await deadCoin.getAddress(), REWARD_RATE, owner.address);
+    const tx = await manager.addStakingPool(await deadCoin.getAddress(), REWARD_RATE, owner.address, owner.address);
     const receipt = await tx.wait();
     const event = receipt.logs.find(l => l.fragment && l.fragment.name === 'StakingPoolAdded');
     poolAddress = event.args.poolAddress;

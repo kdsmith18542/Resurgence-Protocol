@@ -135,6 +135,46 @@ async function main() {
   console.log("   Governance is now proposer and executor");
   console.log("");
 
+  // 8.5. Premint RESURGE for testnet governance bootstrap (deployer still holds MINTER_ROLE)
+  const premintAmount = process.env.PREMINT_AMOUNT ? BigInt(process.env.PREMINT_AMOUNT) : 0n;
+  if (premintAmount > 0n) {
+    const premintTo = process.env.PREMINT_ADDRESS || deployer.address;
+    console.log(`8.5. Preminting ${hre.ethers.formatEther(premintAmount)} RESURGE to ${premintTo}...`);
+    await resurgenceToken.mint(premintTo, premintAmount);
+    if (premintTo.toLowerCase() === deployer.address.toLowerCase()) {
+      await resurgenceToken.delegate(deployer.address);
+      console.log("     Self-delegated voting power");
+    }
+    console.log("   Done");
+    console.log("");
+  }
+
+  // 8.6. Deploy CrossChainReceiver inline (optional — requires CCIP_ROUTER_ADDRESS)
+  let crossChainReceiverAddress = null;
+  const ccipRouter = process.env.CCIP_ROUTER_ADDRESS;
+  if (ccipRouter) {
+    console.log("8.6. Deploying CrossChainReceiver on hub (deployer still holds TIMELOCK_ROLE on RewardDistributor)...");
+    const CrossChainReceiver = await hre.ethers.getContractFactory("CrossChainReceiver");
+    const receiver = await CrossChainReceiver.deploy(
+      ccipRouter,
+      await rewardDistributor.getAddress(),
+      await timelockController.getAddress(),
+    );
+    await receiver.waitForDeployment();
+    crossChainReceiverAddress = await receiver.getAddress();
+    console.log(`   CrossChainReceiver: ${crossChainReceiverAddress}`);
+
+    await rewardDistributor.authorizeBridge(crossChainReceiverAddress);
+    console.log("   Authorized in RewardDistributor");
+
+    const DEFAULT_ADMIN_ROLE_CCR = await receiver.DEFAULT_ADMIN_ROLE();
+    const TIMELOCK_ROLE_CCR = await receiver.TIMELOCK_ROLE();
+    await receiver.renounceRole(TIMELOCK_ROLE_CCR, deployer.address);
+    await receiver.renounceRole(DEFAULT_ADMIN_ROLE_CCR, deployer.address);
+    console.log("   Deployer roles renounced — Timelock governs");
+    console.log("");
+  }
+
   // 9. Transfer all admin roles to Timelock
   console.log("9. Transferring admin roles to Timelock...");
   await resurgenceToken.grantRole(DEFAULT_ADMIN_ROLE, await timelockController.getAddress());
@@ -178,6 +218,9 @@ async function main() {
   console.log("ResurgeStakingPool (proxy):  ", await resurgeStakingPool.getAddress());
   console.log("StakingPoolManager (proxy):   ", await stakingPoolManager.getAddress());
   console.log("ResurgenceGovernance:         ", await resurgenceGovernance.getAddress());
+  if (crossChainReceiverAddress) {
+    console.log("CrossChainReceiver:           ", crossChainReceiverAddress);
+  }
 }
 
 main()

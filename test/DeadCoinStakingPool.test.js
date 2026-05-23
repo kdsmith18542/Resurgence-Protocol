@@ -67,6 +67,7 @@ describe("DeadCoinStakingPool (Upgradeable)", function () {
     await stakingPoolManager.connect(timelock).addStakingPool(
       await deadCoin.getAddress(),
       REWARD_RATE,
+      timelock.address,
       timelock.address
     );
     poolAddress = await stakingPoolManager.deadCoinToPoolAddress(await deadCoin.getAddress());
@@ -251,6 +252,8 @@ describe("DeadCoinStakingPool (Upgradeable)", function () {
       const earnedBefore = await pool.earned(user.address);
       expect(earnedBefore).to.be.gt(0);
 
+      await pool.connect(timelock).setProtocolFee(0);
+
       await pool.connect(user).claimAndRestakeTo(resurgePoolAddress);
 
       expect(await pool.userRewards(user.address)).to.equal(0);
@@ -305,6 +308,167 @@ describe("DeadCoinStakingPool (Upgradeable)", function () {
       await deadCoin.connect(user).approve(poolAddress, STAKE_AMOUNT);
       await expect(pool.connect(user).stake(STAKE_AMOUNT))
         .to.emit(pool, "Staked");
+    });
+  });
+
+  describe("Protocol Treasury Fee", function () {
+    it("Should apply 10% fee on reward claim", async function () {
+      await setupStakedUser();
+      await time.increase(10);
+      await mine();
+
+      const userBalanceBefore = await resurgeToken.balanceOf(user.address);
+      const treasuryBalanceBefore = await resurgeToken.balanceOf(timelock.address);
+
+      const tx = await pool.connect(user).claimRewards();
+      const receipt = await tx.wait();
+
+      const claimedEvent = receipt.logs.find(l => l.fragment?.name === "RewardsClaimed");
+      expect(claimedEvent).to.not.be.undefined;
+      const claimedAmount = claimedEvent.args.amount;
+
+      const userBalanceAfter = await resurgeToken.balanceOf(user.address);
+      const treasuryBalanceAfter = await resurgeToken.balanceOf(timelock.address);
+
+      const userReceived = userBalanceAfter - userBalanceBefore;
+      const treasuryReceived = treasuryBalanceAfter - treasuryBalanceBefore;
+
+      const expectedFee = (claimedAmount * 1000n) / 10000n;
+      const expectedUserAmount = claimedAmount - expectedFee;
+
+      expect(userReceived).to.be.closeTo(expectedUserAmount, ethers.parseEther("0.001"));
+      expect(treasuryReceived).to.be.closeTo(expectedFee, ethers.parseEther("0.001"));
+      expect(userReceived + treasuryReceived).to.be.closeTo(claimedAmount, ethers.parseEther("0.001"));
+
+      // Verify events
+      const feePaidEvent = receipt.logs.find(l => l.fragment?.name === "ProtocolFeePaid");
+      expect(feePaidEvent).to.not.be.undefined;
+      expect(feePaidEvent.args.pool).to.equal(poolAddress);
+      expect(feePaidEvent.args.treasury).to.equal(timelock.address);
+      expect(feePaidEvent.args.amount).to.be.closeTo(expectedFee, ethers.parseEther("0.001"));
+    });
+
+    it("Should apply fee on claimRewardsFor (batch)", async function () {
+      await setupStakedUser();
+      await time.increase(10);
+      await mine();
+
+      const userBalanceBefore = await resurgeToken.balanceOf(user.address);
+      const treasuryBalanceBefore = await resurgeToken.balanceOf(timelock.address);
+
+      const tx = await stakingPoolManager.connect(user).batchClaimRewards([await deadCoin.getAddress()]);
+      const receipt = await tx.wait();
+
+      const claimedEvent = receipt.logs.map(log => {
+        try { return pool.interface.parseLog(log); } catch (e) { return null; }
+      }).find(l => l && l.name === "RewardsClaimed");
+      expect(claimedEvent).to.not.be.undefined;
+      const claimedAmount = claimedEvent.args.amount;
+
+      const userBalanceAfter = await resurgeToken.balanceOf(user.address);
+      const treasuryBalanceAfter = await resurgeToken.balanceOf(timelock.address);
+
+      const userReceived = userBalanceAfter - userBalanceBefore;
+      const treasuryReceived = treasuryBalanceAfter - treasuryBalanceBefore;
+
+      const expectedFee = (claimedAmount * 1000n) / 10000n;
+      const expectedUserAmount = claimedAmount - expectedFee;
+
+      expect(userReceived).to.be.closeTo(expectedUserAmount, ethers.parseEther("0.001"));
+      expect(treasuryReceived).to.be.closeTo(expectedFee, ethers.parseEther("0.001"));
+    });
+
+    it("Should apply fee on claimAndRestakeTo", async function () {
+      await setupStakedUser();
+      
+      // Deploy ResurgeStakingPool
+      const ResurgeStakingPool = await ethers.getContractFactory("ResurgeStakingPool");
+      const resurgePool = await upgrades.deployProxy(ResurgeStakingPool, [
+        await resurgeToken.getAddress(),
+        await rewardDistributor.getAddress(),
+        timelock.address,
+        REWARD_RATE
+      ], { kind: 'uups' });
+      await resurgePool.waitForDeployment();
+      const resurgePoolAddress = await resurgePool.getAddress();
+
+      await rewardDistributor.connect(timelock).authorizeStakingPool(resurgePoolAddress);
+
+      await time.increase(10);
+      await mine();
+
+      const treasuryBalanceBefore = await resurgeToken.balanceOf(timelock.address);
+
+      const tx = await pool.connect(user).claimAndRestakeTo(resurgePoolAddress);
+      const receipt = await tx.wait();
+
+      const claimedEvent = receipt.logs.find(l => l.fragment?.name === "RewardsClaimed");
+      expect(claimedEvent).to.not.be.undefined;
+      const claimedAmount = claimedEvent.args.amount;
+
+      const treasuryBalanceAfter = await resurgeToken.balanceOf(timelock.address);
+      const treasuryReceived = treasuryBalanceAfter - treasuryBalanceBefore;
+
+      const expectedFee = (claimedAmount * 1000n) / 10000n;
+      const expectedUserAmount = claimedAmount - expectedFee;
+
+      expect(treasuryReceived).to.be.closeTo(expectedFee, ethers.parseEther("0.001"));
+      expect(await resurgePool.userStakedAmount(user.address)).to.be.closeTo(expectedUserAmount, ethers.parseEther("0.001"));
+    });
+
+    it("Should support 0 bps fee (no fee taken)", async function () {
+      // Set fee to 0
+      await pool.connect(timelock).setProtocolFee(0);
+
+      await setupStakedUser();
+      await time.increase(10);
+      await mine();
+
+      const userBalanceBefore = await resurgeToken.balanceOf(user.address);
+      const treasuryBalanceBefore = await resurgeToken.balanceOf(timelock.address);
+
+      const tx = await pool.connect(user).claimRewards();
+      const receipt = await tx.wait();
+
+      const claimedEvent = receipt.logs.find(l => l.fragment?.name === "RewardsClaimed");
+      expect(claimedEvent).to.not.be.undefined;
+      const claimedAmount = claimedEvent.args.amount;
+
+      const userBalanceAfter = await resurgeToken.balanceOf(user.address);
+      const treasuryBalanceAfter = await resurgeToken.balanceOf(timelock.address);
+
+      expect(userBalanceAfter - userBalanceBefore).to.be.closeTo(claimedAmount, ethers.parseEther("0.001"));
+      expect(treasuryBalanceAfter - treasuryBalanceBefore).to.equal(0);
+    });
+
+    it("Should allow max 30% fee and reject higher", async function () {
+      await expect(pool.connect(timelock).setProtocolFee(3001))
+        .to.be.revertedWithCustomError(pool, "InvalidAmount");
+
+      await expect(pool.connect(timelock).setProtocolFee(3000))
+        .to.emit(pool, "ProtocolFeeUpdated")
+        .withArgs(1000, 3000);
+
+      expect(await pool.protocolFeeBps()).to.equal(3000);
+    });
+
+    it("Should only allow TIMELOCK_ROLE to update fee and treasury", async function () {
+      await expect(pool.connect(user).setProtocolFee(2000))
+        .to.be.reverted;
+
+      await expect(pool.connect(user).setTreasury(user.address))
+        .to.be.reverted;
+
+      await expect(pool.connect(timelock).setTreasury(admin.address))
+        .to.emit(pool, "TreasuryUpdated")
+        .withArgs(admin.address);
+
+      expect(await pool.treasury()).to.equal(admin.address);
+    });
+
+    it("Should reject setting treasury to zero address", async function () {
+      await expect(pool.connect(timelock).setTreasury(ethers.ZeroAddress))
+        .to.be.revertedWithCustomError(pool, "InvalidAmount");
     });
   });
 

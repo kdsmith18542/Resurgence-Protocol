@@ -43,6 +43,7 @@ describe("Staking Rewards Test (Upgradeable)", function () {
       tokenAddress,
       distributorAddress,
       stakingPoolManager,
+      timelock.address,
       timelock.address
     ], { kind: 'uups' });
     await pool.waitForDeployment();

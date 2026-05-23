@@ -3,6 +3,7 @@ import {
   Unstaked,
   RewardsClaimed,
   RewardRateUpdated,
+  BridgeClaimed,
 } from '../../generated/templates/DeadCoinStakingPool/DeadCoinStakingPool'
 import {
   User,
@@ -10,6 +11,7 @@ import {
   StakingPosition,
   StakingEvent,
   RewardClaimEvent,
+  BridgeClaimEvent,
   ProtocolMetrics,
   ResurgeToken as ResurgeTokenEntity,
 } from '../../generated/schema'
@@ -214,4 +216,39 @@ export function handleRewardRateUpdated(event: RewardRateUpdated): void {
     pool.rewardRatePerSecond = event.params.newRatePerSecond
     pool.save()
   }
+}
+
+export function handleBridgeClaimed(event: BridgeClaimed): void {
+  let userAddress = event.params.user
+  let amount = event.params.amount
+  let messageId = event.params.messageId
+  let poolAddress = event.address
+
+  let user = getOrCreateUser(userAddress)
+  let userId = Bytes.fromHexString(userAddress.toHexString())
+  let pool = StakingPool.load(Bytes.fromHexString(poolAddress.toHexString()))
+
+  if (pool == null) {
+    log.warning('handleBridgeClaimed: pool not found for {}', [poolAddress.toHexString()])
+    return
+  }
+
+  user.totalResurgeEarned = user.totalResurgeEarned.plus(amount)
+  user.rewardsClaimed = user.rewardsClaimed.plus(amount)
+  user.save()
+
+  let position = getOrCreatePosition(userAddress, poolAddress)
+  position.unclaimedRewards = ZERO_BI
+  position.lastClaimedAt = event.block.timestamp
+  position.save()
+
+  let claimEvent = new BridgeClaimEvent(getEventId(event))
+  claimEvent.user = userId
+  claimEvent.pool = pool.id
+  claimEvent.amount = amount
+  claimEvent.messageId = Bytes.fromByteArray(messageId)
+  claimEvent.timestamp = event.block.timestamp
+  claimEvent.blockNumber = event.block.number
+  claimEvent.transactionHash = event.transaction.hash
+  claimEvent.save()
 }

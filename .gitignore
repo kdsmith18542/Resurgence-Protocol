@@ -69,3 +69,6 @@ plan.md
 agents.md
 AGENTS.md
 
+forge-cache/
+forge-out/
+hardhat.config.js.bak

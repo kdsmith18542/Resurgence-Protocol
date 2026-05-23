@@ -129,7 +129,7 @@ Run with Foundry `forge test --fuzz-runs 10000`:
 | Low | $1,000 | Minor logic issues, gas inefficiencies |
 
 ### Scope: 
-- All deployed contracts on Polygon mainnet
+- All deployed contracts on Arbitrum One (hub) and spoke chains
 - Frontend dApp (XSS, signature phishing)
 - Subgraph (data manipulation, query injection)
 
