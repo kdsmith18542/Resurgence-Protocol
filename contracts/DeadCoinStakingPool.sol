@@ -19,6 +19,8 @@ interface ICrossChainSender {
 
 // Custom errors for gas efficiency
 error InvalidAmount();
+error InvalidAddress();
+error UnauthorizedCaller();
 error InsufficientBalance();
 error TransferFailed();
 error RewardMintingFailed();
@@ -87,7 +89,7 @@ contract DeadCoinStakingPool is
         address _treasury
     ) public initializer {
         if (_deadCoinAddress == address(0) || _resurgenceTokenAddress == address(0) || _rewardDistributorAddress == address(0) || _stakingPoolManagerAddress == address(0) || _timelock == address(0) || _treasury == address(0)) {
-            revert InvalidAmount();
+            revert InvalidAddress();
         }
 
         __AccessControl_init();
@@ -148,7 +150,7 @@ contract DeadCoinStakingPool is
     /// @param _user The user to credit the stake to
     /// @param _amount Amount of dead coins to stake
     function stakeFor(address _user, uint256 _amount) external whenNotPaused updateReward(_user) nonReentrant {
-        if (msg.sender != stakingPoolManager) revert InvalidAmount();
+        if (msg.sender != stakingPoolManager) revert UnauthorizedCaller();
         _stakeInternal(_user, _amount);
     }
 
@@ -209,7 +211,7 @@ contract DeadCoinStakingPool is
     /// @notice Claims rewards on behalf of a user (for batch operations via StakingPoolManager)
     /// @param _user The user whose rewards to claim
     function claimRewardsFor(address _user) external whenNotPaused updateReward(_user) nonReentrant {
-        if (msg.sender != stakingPoolManager) revert InvalidAmount();
+        if (msg.sender != stakingPoolManager) revert UnauthorizedCaller();
         uint256 rewards = userRewards[_user];
         
         if (rewards > 0) {
@@ -270,7 +272,7 @@ contract DeadCoinStakingPool is
 
         emit RewardsClaimed(msg.sender, rewards);
 
-        resurgenceToken.approve(_resurgeStakingPool, userAmount);
+        if (!resurgenceToken.approve(_resurgeStakingPool, userAmount)) revert RewardMintingFailed();
         (success, ) = _resurgeStakingPool.call(
             abi.encodeWithSignature("stakeFor(address,uint256)", msg.sender, userAmount)
         );

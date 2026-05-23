@@ -53,6 +53,17 @@ async function main() {
   await distributor.connect(timelock).grantRole(DORMANCY_ORACLE_ROLE, oracle.address);
   console.log("   DORMANCY_ORACLE_ROLE granted to oracle");
 
+  // Revoke deployer's temporary admin/TIMELOCK roles (security: deployer should not retain governance)
+  const DEFAULT_ADMIN = await token.DEFAULT_ADMIN_ROLE();
+  const TIMELOCK = await token.TIMELOCK_ROLE();
+  await token.connect(timelock).revokeRole(DEFAULT_ADMIN, deployer.address);
+  await token.connect(timelock).revokeRole(TIMELOCK, deployer.address);
+  await distributor.connect(timelock).revokeRole(DEFAULT_ADMIN, deployer.address);
+  await distributor.connect(timelock).revokeRole(TIMELOCK, deployer.address);
+  await pool.connect(timelock).revokeRole(DEFAULT_ADMIN, deployer.address);
+  await pool.connect(timelock).revokeRole(TIMELOCK, deployer.address);
+  console.log("   Deployer roles revoked (governance now timelock-only)");
+
   // 5. Register a test wallet
   const BTC = ethers.zeroPadValue("0x01", 32); // "bitcoin" as bytes32
   const wallet = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";

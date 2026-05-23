@@ -102,6 +102,14 @@ contract NonEvmStakingPoolTest is Test {
         pool.registerWallet(BTC, "");
     }
 
+    function testCannotRegisterOverlyLongWallet() public {
+        vm.prank(user1);
+        string memory longWallet = new string(129); // 129 chars, exceeds 128 limit
+        bytes(longWallet).length; // silence warning
+        vm.expectRevert(NonEvmStakingPool.NonEvmStakingPool_WalletTooLong.selector);
+        pool.registerWallet(BTC, longWallet);
+    }
+
     function testUnregisterWallet() public {
         vm.prank(user1);
         pool.registerWallet(BTC, BTC_WALLET);

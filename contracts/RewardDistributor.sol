@@ -29,6 +29,7 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     
     /// @notice Custom errors for gas efficiency
     error RewardDistributor_UnauthorizedPool();
+    error RewardDistributor_UnauthorizedBridge();
     error RewardDistributor_ExceedsMaxSupply();
     error RewardDistributor_InvalidAddress();
     error RewardDistributor_SupplyTooLow();
@@ -159,7 +160,7 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     /// @param user The recipient address (user on the hub chain)
     /// @param amount RESURGE amount to mint
     function mintForBridge(address user, uint256 amount) external whenNotPaused {
-        if (!authorizedBridges[msg.sender]) revert RewardDistributor_UnauthorizedPool();
+        if (!authorizedBridges[msg.sender]) revert RewardDistributor_UnauthorizedBridge();
         uint256 newTotalMinted = totalResurgeMinted + amount;
         if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
         totalResurgeMinted = newTotalMinted;

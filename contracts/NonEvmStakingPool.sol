@@ -19,6 +19,7 @@ contract NonEvmStakingPool is Initializable, AccessControlUpgradeable, PausableU
     error NonEvmStakingPool_NotRegistered();
     error NonEvmStakingPool_NotOwner();
     error NonEvmStakingPool_InvalidInput();
+    error NonEvmStakingPool_WalletTooLong();
 
     struct Registration {
         address staker;
@@ -72,6 +73,7 @@ contract NonEvmStakingPool is Initializable, AccessControlUpgradeable, PausableU
     /// @param wallet The wallet address on the source chain (e.g. "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
     function registerWallet(bytes32 chainId, string calldata wallet) external whenNotPaused {
         if (bytes(wallet).length == 0) revert NonEvmStakingPool_InvalidInput();
+        if (bytes(wallet).length > 128) revert NonEvmStakingPool_WalletTooLong();
 
         bytes32 walletHash = keccak256(abi.encodePacked(wallet));
 
