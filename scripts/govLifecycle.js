@@ -48,30 +48,53 @@ async function main() {
   // Vote if still active or pending
   if (s0 === 0 || s0 === 1) {
     if (s0 === 0) await waitState(gov, pid, 1, 2000); // wait Active
-    log("Casting vote FOR...");
-    const vtx = await gov.castVoteWithReason(pid, 1, "Authorize Amoy spoke", { gasLimit: 500000 });
-    await vtx.wait();
-    log(`Voted. tx: ${vtx.hash}`);
+    const alreadyVoted = await gov.hasVoted(pid, signer.address);
+    if (alreadyVoted) {
+      log("Vote already cast by signer; skipping vote.");
+    } else {
+      log("Casting vote FOR...");
+      const vtx = await gov.castVoteWithReason(pid, 1, "Authorize Amoy spoke", { gasLimit: 500000 });
+      await vtx.wait();
+      log(`Voted. tx: ${vtx.hash}`);
+    }
   }
 
-  if (s0 < 4) await waitState(gov, pid, 4, 3000); // Succeeded
-  log("Queueing...");
-  await (await gov.queue(targets, values, calldatas, descHash)).wait();
-  log("Queued.");
+  let state = Number(await gov.state(pid));
+  if (state < 4) {
+    await waitState(gov, pid, 4, 3000); // Succeeded
+    state = Number(await gov.state(pid));
+  }
 
-  await waitState(gov, pid, 5, 5000); // Queued
+  if (state === 4) {
+    log("Queueing...");
+    const qtx = await gov.queue(targets, values, calldatas, descHash);
+    const qrcpt = await qtx.wait();
+    log(`Queued. tx: ${qrcpt.hash}`);
+    state = Number(await gov.state(pid));
+  } else {
+    log(`Skipping queue (already ${STATE[state]}).`);
+  }
 
-  log("Waiting for timelock delay (polling execute)...");
-  while(true) {
-    try {
-      const tx = await gov.execute(targets, values, calldatas, descHash, { gasLimit: 500000 });
-      await tx.wait();
-      log(`Executed! tx: ${tx.hash}`);
-      break;
-    } catch(e) {
-      log(`Not ready: ${e.message.slice(0,80)} — retrying in 30s`);
-      await sleep(30000);
+  if (state < 5) {
+    await waitState(gov, pid, 5, 5000); // Queued
+    state = Number(await gov.state(pid));
+  }
+
+  if (state === 5) {
+    log("Waiting for timelock delay (polling execute)...");
+    while (true) {
+      try {
+        const tx = await gov.execute(targets, values, calldatas, descHash, { gasLimit: 500000 });
+        await tx.wait();
+        log(`Executed! tx: ${tx.hash}`);
+        break;
+      } catch (e) {
+        log(`Not ready: ${e.message.slice(0,80)} — retrying in 30s`);
+        await sleep(30000);
+      }
     }
+  } else {
+    log(`Skipping execute (already ${STATE[state]}).`);
   }
   log("Done.");
 }

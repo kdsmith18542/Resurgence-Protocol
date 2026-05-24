@@ -56,6 +56,7 @@ TIMELOCK_ADDR=$(grep "TimelockController:" /tmp/deploy-output.log | awk '{print 
 RD_ADDR=$(grep "RewardDistributor (proxy):" /tmp/deploy-output.log | awk '{print $NF}')
 MGR_ADDR=$(grep "StakingPoolManager (proxy):" /tmp/deploy-output.log | awk '{print $NF}')
 GOV_ADDR=$(grep "ResurgenceGovernance:" /tmp/deploy-output.log | awk '{print $NF}')
+NONEVM_POOL_ADDR=$(grep "NonEvmStakingPool proxy:" /tmp/deploy-output.log | awk '{print $NF}')
 
 echo ""
 echo "  Deployed addresses:"
@@ -64,6 +65,7 @@ echo "  Timelock:            $TIMELOCK_ADDR"
 echo "  RewardDistributor:   $RD_ADDR"
 echo "  StakingPoolManager:  $MGR_ADDR"
 echo "  Governance:          $GOV_ADDR"
+echo "  NonEvmStakingPool:   $NONEVM_POOL_ADDR"
 
 # 3. Create .env.local for frontend
 echo ""
@@ -76,6 +78,7 @@ NEXT_PUBLIC_TIMELOCK_ADDRESS=$TIMELOCK_ADDR
 NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS=$RD_ADDR
 NEXT_PUBLIC_STAKING_POOL_MANAGER_ADDRESS=$MGR_ADDR
 NEXT_PUBLIC_GOVERNANCE_ADDRESS=$GOV_ADDR
+NEXT_PUBLIC_NON_EVM_POOL_ADDRESS=$NONEVM_POOL_ADDR
 NEXT_PUBLIC_DEFAULT_CHAIN_ID=31337
 EOF
 echo "  Done"

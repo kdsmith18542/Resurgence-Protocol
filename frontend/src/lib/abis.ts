@@ -165,5 +165,12 @@ export const ABIS = {
     {"type":"function","name":"unpause","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
     {"type":"function","name":"paused","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
     {"type":"function","name":"hasRole","inputs":[{"name":"role","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+  ] as const,
+  NonEvmStakingPool: [
+    {"type":"function","name":"registerWallet","inputs":[{"name":"chainId","type":"bytes32","internalType":"bytes32"},{"name":"wallet","type":"string","internalType":"string"}],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"unregisterWallet","inputs":[{"name":"chainId","type":"bytes32","internalType":"bytes32"},{"name":"wallet","type":"string","internalType":"string"}],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"getStaker","inputs":[{"name":"chainId","type":"bytes32","internalType":"bytes32"},{"name":"wallet","type":"string","internalType":"string"}],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},
+    {"type":"function","name":"isRegistered","inputs":[{"name":"chainId","type":"bytes32","internalType":"bytes32"},{"name":"wallet","type":"string","internalType":"string"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},
+    {"type":"function","name":"getRegistration","inputs":[{"name":"chainId","type":"bytes32","internalType":"bytes32"},{"name":"wallet","type":"string","internalType":"string"}],"outputs":[{"name":"staker","type":"address","internalType":"address"},{"name":"registeredAt","type":"uint64","internalType":"uint64"},{"name":"active","type":"bool","internalType":"bool"}],"stateMutability":"view"}
   ] as const
 } as const;

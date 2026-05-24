@@ -43,6 +43,13 @@ async function main() {
   const rspImplAddr = await rspImpl.getAddress();
   console.log("   Impl:", rspImplAddr);
 
+  console.log("\n5.5 Deploying NonEvmStakingPool implementation...");
+  const NonEvmStakingPool = await hre.ethers.getContractFactory("NonEvmStakingPool");
+  const nonEvmImpl = await NonEvmStakingPool.deploy();
+  await nonEvmImpl.waitForDeployment();
+  const nonEvmImplAddr = await nonEvmImpl.getAddress();
+  console.log("   Impl:", nonEvmImplAddr);
+
   // =====================================================
   // 6. Deploy Proxies with initializers
   // =====================================================
@@ -84,6 +91,13 @@ async function main() {
   const rspAddr = await rspProxy.getAddress();
   console.log("   ResurgeStakingPool proxy:", rspAddr);
 
+  console.log("\n10.5 Deploying ERC1967Proxy for NonEvmStakingPool...");
+  const nonEvmInitData = NonEvmStakingPool.interface.encodeFunctionData("initialize", [timelockAddr]);
+  const nonEvmProxy = await ERC1967Proxy.deploy(nonEvmImplAddr, nonEvmInitData);
+  await nonEvmProxy.waitForDeployment();
+  const nonEvmAddr = await nonEvmProxy.getAddress();
+  console.log("   NonEvmStakingPool proxy:", nonEvmAddr);
+
   // =====================================================
   // 11. Grant roles
   // =====================================================
@@ -99,6 +113,13 @@ async function main() {
 
   await rd.authorizeStakingPool(rspAddr);
   console.log("   ResurgeStakingPool authorized");
+
+  const DORMANCY_ORACLE_ROLE = await rd.DORMANCY_ORACLE_ROLE();
+  await rd.grantRole(DORMANCY_ORACLE_ROLE, "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC");
+  console.log("   DORMANCY_ORACLE_ROLE -> Account 2 (0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC)");
+
+  await rd.setNonEvmRewardAmount(hre.ethers.parseEther("1000"));
+  console.log("   nonEvmRewardAmount set to 1000 RESURGE");
 
   // =====================================================
   // 12. Governance
@@ -180,6 +201,7 @@ async function main() {
   console.log(`ResurgeStakingPool (proxy):   ${rspAddr}`);
   console.log(`StakingPoolManager (proxy):    ${mgrAddr}`);
   console.log(`ResurgenceGovernance:          ${govAddr}`);
+  console.log(`NonEvmStakingPool proxy:       ${nonEvmAddr}`);
   console.log("");
   for (let i = 0; i < mockTokens.length; i++) {
     console.log(`  ${mockTokens[i].symbol}: Token=${deadCoinAddresses[i]}, Pool=${poolAddresses[i]}`);
