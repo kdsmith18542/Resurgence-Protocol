@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
-const DEAD_COIN_ADDRESS = process.env.DEAD_COIN_ADDRESS || "0x59624e0f5F0F76bb35107808d038Ed8eA24AAFFD"; // v4 default
-const POOL_PROXY_ADDRESS = process.env.POOL_PROXY_ADDRESS || "0xbc3f08b905e8cf6d2a5329867d77477c5bb6b808"; // v4 default
+const DEAD_COIN_ADDRESS = process.env.DEAD_COIN_ADDRESS || "0xc83702C54Ce1Cdb5C2A9ca3bbdc30e023859019A"; // v4 active
+const POOL_PROXY_ADDRESS = process.env.POOL_PROXY_ADDRESS || "0xA47464986848447Efa93EF0Cd1b20a1a6227922D"; // v4 active
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 

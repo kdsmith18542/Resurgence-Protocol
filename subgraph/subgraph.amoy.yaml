@@ -41,8 +41,8 @@ dataSources:
     network: polygon-amoy
     source:
       abi: DeadCoinStakingPool
-      address: "0xbc3f08b905e8cf6d2a5329867d77477c5bb6b808"
-      startBlock: 38900712
+      address: "0xA47464986848447Efa93EF0Cd1b20a1a6227922D"
+      startBlock: 38900000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
