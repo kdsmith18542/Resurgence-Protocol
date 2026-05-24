@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
-const DEAD_COIN_ADDRESS = "0x59624e0f5F0F76bb35107808d038Ed8eA24AAFFD"; // v4
-const POOL_PROXY_ADDRESS = "0xbc3f08b905e8cf6d2a5329867d77477c5bb6b808"; // v4
+const DEAD_COIN_ADDRESS = process.env.DEAD_COIN_ADDRESS || "0x59624e0f5F0F76bb35107808d038Ed8eA24AAFFD"; // v4 default
+const POOL_PROXY_ADDRESS = process.env.POOL_PROXY_ADDRESS || "0xbc3f08b905e8cf6d2a5329867d77477c5bb6b808"; // v4 default
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -11,6 +11,20 @@ async function main() {
 
   const deadCoin = await hre.ethers.getContractAt("ERC20Mock", DEAD_COIN_ADDRESS, deployer);
   const pool = await hre.ethers.getContractAt("DeadCoinStakingPool", POOL_PROXY_ADDRESS, deployer);
+
+  // Preflight check: spoke pools use a rewardDistributor stub.
+  // If protocolFeeBps > 0, bridgeClaim() will attempt local minting and revert.
+  const feeBps = await pool.protocolFeeBps();
+  const rewardDistributor = await pool.rewardDistributor();
+  const distributorCode = await hre.ethers.provider.getCode(rewardDistributor);
+  console.log(`protocolFeeBps: ${feeBps.toString()}`);
+  console.log(`rewardDistributor: ${rewardDistributor}`);
+  if (feeBps > 0n && distributorCode === "0x") {
+    throw new Error(
+      "Pool misconfigured for spoke bridgeClaim: protocolFeeBps > 0 with non-contract rewardDistributor. " +
+      "Set protocol fee to 0 on this spoke pool first."
+    );
+  }
 
   // 1. Check/Mint Mock DeadCoin balance
   let balance = await deadCoin.balanceOf(deployer.address);

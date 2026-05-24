@@ -100,53 +100,79 @@ async function main() {
     log(`Resuming proposal: ${proposalId}`);
   }
 
-  // Wait for Active
-  await pollUntil("Active", async () => {
-    const s = Number(await governance.state(proposalId));
-    log(`  state: ${STATE_NAMES[s]}`);
-    return s === S.Active ? true : null;
-  }, POLL_MS);
+  let state = Number(await governance.state(proposalId));
+  log(`Initial state: ${STATE_NAMES[state]}`);
 
-  log("Voting For...");
-  const voteTx = await governance.castVoteWithReason(proposalId, 1, "Authorize new Amoy spoke");
-  await voteTx.wait();
-  log(`Vote tx: ${voteTx.hash}`);
+  if (state === S.Canceled || state === S.Defeated || state === S.Expired) {
+    throw new Error(`Proposal cannot continue (state=${STATE_NAMES[state]})`);
+  }
 
-  // Wait for Succeeded
-  await pollUntil("Succeeded", async () => {
-    const s = Number(await governance.state(proposalId));
-    log(`  state: ${STATE_NAMES[s]}`);
-    if (s === S.Defeated) throw new Error("Defeated");
-    if (s === S.Canceled) throw new Error("Canceled");
-    return s === S.Succeeded ? true : null;
-  }, POLL_MS);
+  if (state === S.Pending) {
+    await pollUntil("Active", async () => {
+      const s = Number(await governance.state(proposalId));
+      log(`  state: ${STATE_NAMES[s]}`);
+      if (s === S.Canceled || s === S.Defeated || s === S.Expired) {
+        throw new Error(`Proposal cannot continue (state=${STATE_NAMES[s]})`);
+      }
+      return s === S.Active ? true : null;
+    }, POLL_MS);
+    state = S.Active;
+  }
 
-  log("Queueing...");
-  await (await governance.queue(targets, values, calldatas, descHash)).wait();
-  log("Queued.");
-
-  // Wait for Queued state then attempt execute
-  await pollUntil("ready to execute", async () => {
-    const s = Number(await governance.state(proposalId));
-    log(`  state: ${STATE_NAMES[s]}`);
-    return (s === S.Queued || s === S.Executed) ? true : null;
-  }, POLL_MS);
-
-  log("Executing...");
-  // We need to wait for the timelock delay if any. The local timelock delay is minimal on testnet, but let's check.
-  // We poll execute until it works
-  while (true) {
-    try {
-      const tx = await governance.execute(targets, values, calldatas, descHash);
-      await tx.wait();
-      log(`Executed! tx: ${tx.hash}`);
-      break;
-    } catch (err) {
-      if (err.message?.includes("TimelockController") || err.message?.includes("too early") || err.message?.includes("revert")) {
-        log(`  Not ready (${err.message.slice(0,60)}), retrying in ${POLL_MS/1000}s...`);
-        await sleep(POLL_MS);
-      } else throw err;
+  if (state === S.Active) {
+    const alreadyVoted = await governance.hasVoted(proposalId, signer.address);
+    if (alreadyVoted) {
+      log("Vote already cast by signer; skipping vote.");
+    } else {
+      log("Voting For...");
+      const voteTx = await governance.castVoteWithReason(proposalId, 1, "Authorize new Amoy spoke");
+      await voteTx.wait();
+      log(`Vote tx: ${voteTx.hash}`);
     }
+
+    await pollUntil("Succeeded", async () => {
+      const s = Number(await governance.state(proposalId));
+      log(`  state: ${STATE_NAMES[s]}`);
+      if (s === S.Defeated || s === S.Canceled || s === S.Expired) {
+        throw new Error(`Proposal cannot continue (state=${STATE_NAMES[s]})`);
+      }
+      return s === S.Succeeded ? true : null;
+    }, POLL_MS);
+    state = S.Succeeded;
+  }
+
+  if (state === S.Succeeded) {
+    log("Queueing...");
+    await (await governance.queue(targets, values, calldatas, descHash)).wait();
+    log("Queued.");
+    state = S.Queued;
+  }
+
+  if (state === S.Queued) {
+    log("Executing...");
+    // Poll execute until timelock delay has elapsed.
+    while (true) {
+      try {
+        const tx = await governance.execute(targets, values, calldatas, descHash);
+        await tx.wait();
+        log(`Executed! tx: ${tx.hash}`);
+        break;
+      } catch (err) {
+        const msg = err?.message || "";
+        if (
+          msg.includes("TimelockController") ||
+          msg.includes("too early") ||
+          msg.includes("revert")
+        ) {
+          log(`  Not ready (${msg.slice(0, 60)}), retrying in ${POLL_MS / 1000}s...`);
+          await sleep(POLL_MS);
+        } else {
+          throw err;
+        }
+      }
+    }
+  } else if (state === S.Executed) {
+    log("Proposal already executed.");
   }
 
   // Verify
