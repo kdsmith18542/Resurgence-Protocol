@@ -97,6 +97,7 @@ async function main() {
   const governance = await Governance.deploy(
     tokenAddress,
     timelockAddress,
+    resurgePoolAddress,
     VOTING_DELAY,
     VOTING_PERIOD,
     QUORUM_PERCENTAGE,
@@ -105,7 +106,7 @@ async function main() {
   await governance.waitForDeployment();
   const governanceAddress = await governance.getAddress();
   console.log("   ResurgenceGovernance:", governanceAddress);
-  await verify(governanceAddress, [tokenAddress, timelockAddress, VOTING_DELAY, VOTING_PERIOD, QUORUM_PERCENTAGE, PROPOSAL_THRESHOLD]);
+  await verify(governanceAddress, [tokenAddress, timelockAddress, resurgePoolAddress, VOTING_DELAY, VOTING_PERIOD, QUORUM_PERCENTAGE, PROPOSAL_THRESHOLD]);
 
   // 8. Transfer roles to Timelock
   console.log("\n8. Transferring roles to Timelock...");

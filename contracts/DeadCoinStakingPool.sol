@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./utils/ReentrancyGuardUpgradeable.sol";
@@ -29,13 +30,15 @@ error BridgeNotConfigured();
 /// @title DeadCoinStakingPool - Proof-of-Dormancy staking pool for individual dead coins
 /// @notice Manages staking and reward distribution for a single "dead coin"
 /// @dev Implements per-second reward calculation with reentrancy protection. UUPS Upgradeable.
-contract DeadCoinStakingPool is 
-    Initializable, 
-    AccessControlUpgradeable, 
-    PausableUpgradeable, 
+contract DeadCoinStakingPool is
+    Initializable,
+    AccessControlUpgradeable,
+    PausableUpgradeable,
     ReentrancyGuardUpgradeable,
-    UUPSUpgradeable 
+    UUPSUpgradeable
 {
+    using SafeERC20 for IERC20;
+
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
     
@@ -158,7 +161,7 @@ contract DeadCoinStakingPool is
     function _stakeInternal(address _staker, uint256 _amount) internal {
         if (_amount == 0) revert InvalidAmount();
         
-        if (!deadCoin.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
+        deadCoin.safeTransferFrom(msg.sender, address(this), _amount);
         
         userStakedAmount[_staker] += _amount;
         totalStakedSupply += _amount;
@@ -175,7 +178,7 @@ contract DeadCoinStakingPool is
         userStakedAmount[msg.sender] -= _amount;
         totalStakedSupply -= _amount;
         
-        if (!deadCoin.transfer(msg.sender, _amount)) revert TransferFailed();
+        deadCoin.safeTransfer(msg.sender, _amount);
         
         emit Unstaked(msg.sender, _amount);
     }
@@ -235,7 +238,7 @@ contract DeadCoinStakingPool is
             success = IRewardDistributor(rewardDistributor).mintAndDistribute(address(this), userAmount);
             if (!success) revert RewardMintingFailed();
             
-            if (!resurgenceToken.transfer(_user, userAmount)) revert TransferFailed();
+            resurgenceToken.safeTransfer(_user, userAmount);
             
             emit RewardsClaimed(_user, rewards);
         }
@@ -272,7 +275,7 @@ contract DeadCoinStakingPool is
 
         emit RewardsClaimed(msg.sender, rewards);
 
-        if (!resurgenceToken.approve(_resurgeStakingPool, userAmount)) revert RewardMintingFailed();
+        resurgenceToken.forceApprove(_resurgeStakingPool, userAmount);
         (success, ) = _resurgeStakingPool.call(
             abi.encodeWithSignature("stakeFor(address,uint256)", msg.sender, userAmount)
         );
@@ -290,8 +293,22 @@ contract DeadCoinStakingPool is
 
         userRewards[msg.sender] = 0;
 
-        bytes32 messageId = ICrossChainSender(crossChainSender).sendRewardClaim(msg.sender, rewards);
-        emit BridgeClaimed(msg.sender, rewards, messageId);
+        uint256 fee = 0;
+        uint256 bridgeAmount = rewards;
+        if (protocolFeeBps > 0 && treasury != address(0)) {
+            fee = (rewards * protocolFeeBps) / 10000;
+            bridgeAmount = rewards - fee;
+        }
+
+        bool success;
+        if (fee > 0) {
+            success = IRewardDistributor(rewardDistributor).mintAndDistribute(treasury, fee);
+            if (!success) revert RewardMintingFailed();
+            emit ProtocolFeePaid(address(this), treasury, fee);
+        }
+
+        bytes32 messageId = ICrossChainSender(crossChainSender).sendRewardClaim(msg.sender, bridgeAmount);
+        emit BridgeClaimed(msg.sender, bridgeAmount, messageId);
     }
 
     /// @notice Sets the CrossChainSender address for spoke-chain bridge claims

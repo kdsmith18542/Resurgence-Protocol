@@ -336,7 +336,7 @@ describe("Cross-Chain CCIP (Phase 10.0)", function () {
     it("Should only be callable by an authorized bridge", async function () {
       await expect(
         rewardDistributor.connect(attacker).mintForBridge(user.address, ethers.parseEther("100"))
-      ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_UnauthorizedPool");
+      ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_UnauthorizedBridge");
     });
 
     it("Should enforce the maxMintSupply cap", async function () {
@@ -408,8 +408,11 @@ describe("Cross-Chain CCIP (Phase 10.0)", function () {
       );
 
       const received = await resurgeToken.balanceOf(user.address) - balanceBefore;
-      // Should receive approximately 'earned' RESURGE (allow ±2 RESURGE for timing)
-      expect(received).to.be.closeTo(earned, ethers.parseEther("2"));
+      // bridgeClaim now applies the protocol fee; compute expected net amount
+      const protocolFeeBps = await deadCoinPool.protocolFeeBps();
+      const fee = earned * protocolFeeBps / 10000n;
+      const expectedNet = earned - fee;
+      expect(received).to.be.closeTo(expectedNet, ethers.parseEther("2"));
     });
   });
 });

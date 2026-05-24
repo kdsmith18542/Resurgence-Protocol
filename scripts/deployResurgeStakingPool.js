@@ -3,7 +3,7 @@ const { upgrades } = require("hardhat");
 
 const RESURGE_TOKEN      = "0xa95D4aD543BCfCeee94CdF3F4CcFb3826280AfE0";
 const REWARD_DISTRIBUTOR = "0xCDfd46512dA68e2eD555D1d0Ac09aB1Acf38f2Ed";
-const TIMELOCK           = "0x65ddC4419c34cCe678a9A6D44E05666af2B1D869";
+const TIMELOCK           = "0xf412aD48e83a2537f017b0CbeA5A990CCEA9cE87"; // v4
 const REWARD_RATE        = 1000000000000000000n; // 1 RESURGE/sec
 
 async function main() {

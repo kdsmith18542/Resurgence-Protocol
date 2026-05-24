@@ -13,6 +13,10 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./ResurgenceTimelockController.sol";
 import "./ResurgeToken.sol";
 
+interface IResurgeStakingPool {
+    function getPastStakedVotes(address account, uint256 blockNumber) external view returns (uint256);
+}
+
 /// @title ResurgenceGovernance - Governance contract for the Resurgence Protocol
 /// @notice Implements on-chain governance using OpenZeppelin Governor components
 /// @dev Uses GovernorSettings, CountingSimple, Votes, QuorumFraction, and TimelockControl
@@ -27,9 +31,13 @@ contract ResurgenceGovernance is
     /// @dev Track the latest proposal ID
     uint256 private _latestProposalId;
 
+    /// @notice RSP address for staked vote aggregation; address(0) if not yet deployed.
+    address public immutable stakingPool;
+
     /// @notice Initializes the governance contract
     /// @param _resurgeToken The native RESURGE token address (IVotes compatible)
     /// @param _timelock The TimelockController address
+    /// @param _stakingPool ResurgeStakingPool address for staked vote aggregation (address(0) to skip)
     /// @param _votingDelay Number of blocks between proposal and voting start
     /// @param _votingPeriod Duration of the voting period in blocks
     /// @param _quorumPercentage Percentage of total supply needed for quorum (e.g. 4)
@@ -37,6 +45,7 @@ contract ResurgenceGovernance is
     constructor(
         ResurgeToken _resurgeToken,
         ResurgenceTimelockController _timelock,
+        address _stakingPool,
         uint256 _votingDelay,
         uint256 _votingPeriod,
         uint256 _quorumPercentage,
@@ -51,7 +60,9 @@ contract ResurgenceGovernance is
         GovernorVotes(IVotes(address(_resurgeToken)))
         GovernorVotesQuorumFraction(_quorumPercentage)
         GovernorTimelockControl(_timelock)
-    {}
+    {
+        stakingPool = _stakingPool;
+    }
 
     // The following functions are overrides required by Solidity
 
@@ -141,6 +152,22 @@ contract ResurgenceGovernance is
         returns (uint256)
     {
         return super.getVotes(account, blockNumber);
+    }
+
+    /// @dev Aggregates liquid RESURGE votes (ERC20Votes) and staked RESURGE votes (RSP checkpoints).
+    ///      1 RESURGE = 1 vote regardless of source; boosts only affect reward yield, not vote weight.
+    function _getVotes(address account, uint256 timepoint, bytes memory params)
+        internal
+        view
+        virtual
+        override(Governor, GovernorVotes)
+        returns (uint256)
+    {
+        uint256 liquidVotes = super._getVotes(account, timepoint, params);
+        uint256 stakedVotes = stakingPool != address(0)
+            ? IResurgeStakingPool(stakingPool).getPastStakedVotes(account, timepoint)
+            : 0;
+        return liquidVotes + stakedVotes;
     }
 
     /// @notice Returns the most recently created proposal ID

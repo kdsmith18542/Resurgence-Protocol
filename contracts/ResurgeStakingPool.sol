@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 import "./ResurgeToken.sol";
 import "./RewardDistributor.sol";
 
@@ -23,8 +24,9 @@ interface IVotes {
 }
 
 /// @title ResurgeStakingPool - Native RESURGE token staking with boosted rewards and voting power
-/// @notice Allows RESURGE holders to stake tokens for boosted yield while retaining voting power
-/// @dev UUPS Upgradeable. Staked RESURGE is locked; voting power delegated back to stakers.
+/// @notice Allows RESURGE holders to stake tokens for boosted yield. Staked votes tracked via
+///         per-delegatee checkpoints so governors can aggregate liquid + staked vote weight.
+/// @dev UUPS Upgradeable. New state variables must consume __gap slots to preserve proxy layout.
 contract ResurgeStakingPool is
     Initializable,
     AccessControlUpgradeable,
@@ -32,6 +34,8 @@ contract ResurgeStakingPool is
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable
 {
+    using Checkpoints for Checkpoints.Trace208;
+
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
     bytes32 public constant RATE_SETTER_ROLE = keccak256("RATE_SETTER_ROLE");
@@ -53,15 +57,22 @@ contract ResurgeStakingPool is
     uint256 public minStakeDuration;
     uint256 public earlyUnstakePenaltyBps;
 
-    // Boost multiplier (basis points, 10000 = 1x)
+    // Boost multiplier (basis points, 10000 = 1x). Boosts affect rewards only, never vote weight.
     uint256 public baseBoostBps;
     mapping(address => uint256) public userBoostBps;
+
+    // Staked vote checkpoints — keyed by delegatee address, value = delegated stake weight.
+    // Consumes 3 slots from __gap (was 44, now 41).
+    mapping(address => Checkpoints.Trace208) private _stakedVoteCheckpoints;
+    Checkpoints.Trace208 private _totalStakedCheckpoints;
+    uint256 public maxBoostBps;
 
     event Staked(address indexed user, uint256 amount, address delegation);
     event Unstaked(address indexed user, uint256 amount, uint256 penalty);
     event RewardsClaimed(address indexed user, uint256 amount);
     event RewardRateUpdated(uint256 newRatePerSecond);
     event BoostUpdated(address indexed user, uint256 newBoostBps);
+    event MaxBoostUpdated(uint256 newMaxBoostBps);
     event DelegationUpdated(address indexed user, address indexed delegatee);
     event MinStakeDurationUpdated(uint256 newDuration);
     event EarlyUnstakePenaltyUpdated(uint256 newPenaltyBps);
@@ -91,6 +102,7 @@ contract ResurgeStakingPool is
         minStakeDuration = 7 days;
         earlyUnstakePenaltyBps = 500; // 5%
         baseBoostBps = 10000; // 1x
+        maxBoostBps = 30000;  // 3x hard cap
 
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
@@ -129,8 +141,6 @@ contract ResurgeStakingPool is
     }
 
     /// @notice Boosted rewards for a user — for display purposes.
-    /// @param _account The user address to calculate rewards for
-    /// @return The boosted RESURGE reward amount
     function earned(address _account) public view returns (uint256) {
         uint256 boost = userBoostBps[_account] > 0 ? userBoostBps[_account] : baseBoostBps;
         return (_earnedRaw(_account) * boost) / 10000;
@@ -138,16 +148,13 @@ contract ResurgeStakingPool is
 
     /// @notice Stakes RESURGE tokens into the pool
     /// @param _amount Amount of RESURGE to stake
-    /// @param _delegatee Optional address to delegate voting power to (can be address(0))
+    /// @param _delegatee Voting power delegate (address(0) = self-delegate or keep existing)
     function stake(uint256 _amount, address _delegatee) external whenNotPaused updateReward(msg.sender) nonReentrant {
         _stakeInternal(msg.sender, _amount, _delegatee);
     }
 
     /// @notice Stakes on behalf of another user (for compounding from other pools)
-    /// @param _user The user to credit the stake to
-    /// @param _amount Amount of RESURGE to stake
     function stakeFor(address _user, uint256 _amount) external whenNotPaused updateReward(_user) nonReentrant {
-        // Only authorized staking pools can call this
         if (!RewardDistributor(rewardDistributor).authorizedStakingPools(msg.sender)) revert ResurgeStaking_NotAuthorized();
         _stakeInternal(_user, _amount, address(0));
     }
@@ -158,20 +165,51 @@ contract ResurgeStakingPool is
         if (!resurgeToken.transferFrom(msg.sender, address(this), _amount))
             revert ResurgeStaking_TransferFailed();
 
+        bool isFresh = userStakedAmount[_user] == 0;
         userStakedAmount[_user] += _amount;
         totalStakedSupply += _amount;
-        userStakedAt[_user] = block.timestamp;
 
-        if (_delegatee != address(0)) {
-            userDelegation[_user] = _delegatee;
-            emit DelegationUpdated(_user, _delegatee);
+        // Only set the lock start for a fresh position — top-ups keep the original lock timestamp.
+        if (isFresh) userStakedAt[_user] = block.timestamp;
+
+        // Resolve the final delegatee: explicit arg > existing > self.
+        address finalDelegatee = _delegatee != address(0)
+            ? _delegatee
+            : (userDelegation[_user] != address(0) ? userDelegation[_user] : _user);
+
+        address prevDelegatee = userDelegation[_user] != address(0) ? userDelegation[_user] : _user;
+
+        if (prevDelegatee != finalDelegatee) {
+            // Changing delegation: move existing vote weight to the new delegatee first.
+            uint208 existingWeight = uint208(userStakedAmount[_user] - _amount);
+            if (existingWeight > 0) {
+                _stakedVoteCheckpoints[prevDelegatee].push(
+                    uint48(block.number),
+                    _stakedVoteCheckpoints[prevDelegatee].latest() - existingWeight
+                );
+                _stakedVoteCheckpoints[finalDelegatee].push(
+                    uint48(block.number),
+                    _stakedVoteCheckpoints[finalDelegatee].latest() + existingWeight
+                );
+            }
+            userDelegation[_user] = finalDelegatee;
+            emit DelegationUpdated(_user, finalDelegatee);
+        } else if (userDelegation[_user] == address(0)) {
+            // First stake with no explicit delegatee: initialize default self-delegation.
+            userDelegation[_user] = _user;
         }
+
+        // Add new votes to the final delegatee (same-block push replaces prior push correctly).
+        _stakedVoteCheckpoints[finalDelegatee].push(
+            uint48(block.number),
+            _stakedVoteCheckpoints[finalDelegatee].latest() + uint208(_amount)
+        );
+        _totalStakedCheckpoints.push(uint48(block.number), uint208(totalStakedSupply));
 
         emit Staked(_user, _amount, _delegatee);
     }
 
-    /// @notice Withdraws staked RESURGE tokens. Subject to early unstake penalty if before minStakeDuration.
-    /// @param _amount Amount of RESURGE to withdraw
+    /// @notice Withdraws staked RESURGE. Subject to early-unstake penalty before minStakeDuration.
     function unstake(uint256 _amount) external whenNotPaused updateReward(msg.sender) nonReentrant {
         if (_amount == 0) revert ResurgeStaking_InvalidAmount();
         if (userStakedAmount[msg.sender] < _amount) revert ResurgeStaking_InsufficientBalance();
@@ -184,12 +222,20 @@ contract ResurgeStakingPool is
         userStakedAmount[msg.sender] -= _amount;
         totalStakedSupply -= _amount;
 
+        // Remove vote weight from current delegatee.
+        address delegatee = userDelegation[msg.sender];
+        if (delegatee == address(0)) delegatee = msg.sender;
+        _stakedVoteCheckpoints[delegatee].push(
+            uint48(block.number),
+            _stakedVoteCheckpoints[delegatee].latest() - uint208(_amount)
+        );
+        _totalStakedCheckpoints.push(uint48(block.number), uint208(totalStakedSupply));
+
         uint256 returnAmount = _amount - penalty;
         if (!resurgeToken.transfer(msg.sender, returnAmount))
             revert ResurgeStaking_TransferFailed();
 
         if (penalty > 0) {
-            // Penalty goes to protocol treasury (burn or redistribute)
             resurgeToken.burn(penalty);
         }
 
@@ -197,7 +243,6 @@ contract ResurgeStakingPool is
     }
 
     function claimRewards() public whenNotPaused updateReward(msg.sender) nonReentrant {
-        // userRewards holds raw (unboosted) amount after updateReward — apply boost here.
         uint256 boost = userBoostBps[msg.sender] > 0 ? userBoostBps[msg.sender] : baseBoostBps;
         uint256 rewards = (userRewards[msg.sender] * boost) / 10000;
         if (rewards > 0) {
@@ -218,17 +263,64 @@ contract ResurgeStakingPool is
 
             userStakedAmount[msg.sender] += rewards;
             totalStakedSupply += rewards;
-            // Reset lock timer so compounded tokens are subject to the full lock period.
+            // Reset lock timer: compounded tokens must serve the full lock period.
             userStakedAt[msg.sender] = block.timestamp;
+
+            address delegatee = userDelegation[msg.sender];
+            if (delegatee == address(0)) delegatee = msg.sender;
+            _stakedVoteCheckpoints[delegatee].push(
+                uint48(block.number),
+                _stakedVoteCheckpoints[delegatee].latest() + uint208(rewards)
+            );
+            _totalStakedCheckpoints.push(uint48(block.number), uint208(totalStakedSupply));
 
             emit RewardsClaimed(msg.sender, rewards);
             emit Staked(msg.sender, rewards, address(0));
         }
     }
 
+    /// @notice Changes the staked-vote delegation target for the caller.
+    /// @param delegatee Address to delegate to. address(0) reverts to self-delegation.
+    function delegateStakedVotes(address delegatee) external {
+        _delegateStaked(msg.sender, delegatee == address(0) ? msg.sender : delegatee);
+    }
+
     function setDelegate(address _delegatee) external {
-        userDelegation[msg.sender] = _delegatee;
-        emit DelegationUpdated(msg.sender, _delegatee);
+        _delegateStaked(msg.sender, _delegatee == address(0) ? msg.sender : _delegatee);
+    }
+
+    function _delegateStaked(address account, address delegatee) internal {
+        address from = userDelegation[account] != address(0) ? userDelegation[account] : account;
+        if (from == delegatee) return;
+
+        userDelegation[account] = delegatee;
+        uint208 weight = uint208(userStakedAmount[account]);
+        if (weight > 0) {
+            _stakedVoteCheckpoints[from].push(
+                uint48(block.number),
+                _stakedVoteCheckpoints[from].latest() - weight
+            );
+            _stakedVoteCheckpoints[delegatee].push(
+                uint48(block.number),
+                _stakedVoteCheckpoints[delegatee].latest() + weight
+            );
+        }
+        emit DelegationUpdated(account, delegatee);
+    }
+
+    /// @notice Current staked voting power held by an account (as delegatee).
+    function getStakedVotes(address account) public view returns (uint256) {
+        return _stakedVoteCheckpoints[account].latest();
+    }
+
+    /// @notice Historical staked voting power of an account at a past block number.
+    function getPastStakedVotes(address account, uint256 blockNumber) public view returns (uint256) {
+        return _stakedVoteCheckpoints[account].upperLookupRecent(uint48(blockNumber));
+    }
+
+    /// @notice Total staked supply at a past block number (for quorum calculations).
+    function getPastTotalStakedSupply(uint256 blockNumber) public view returns (uint256) {
+        return _totalStakedCheckpoints.upperLookupRecent(uint48(blockNumber));
     }
 
     function setRewardRate(uint256 _newRatePerSecond) external onlyRole(RATE_SETTER_ROLE) whenNotPaused updateReward(address(0)) {
@@ -238,8 +330,15 @@ contract ResurgeStakingPool is
 
     function setUserBoost(address _user, uint256 _boostBps) external onlyRole(TIMELOCK_ROLE) {
         require(_boostBps >= 10000, "Boost must be >= 1x");
+        require(_boostBps <= maxBoostBps, "Boost exceeds maximum");
         userBoostBps[_user] = _boostBps;
         emit BoostUpdated(_user, _boostBps);
+    }
+
+    function setMaxBoost(uint256 _maxBoostBps) external onlyRole(TIMELOCK_ROLE) {
+        require(_maxBoostBps >= 10000, "Max boost must be >= 1x");
+        maxBoostBps = _maxBoostBps;
+        emit MaxBoostUpdated(_maxBoostBps);
     }
 
     function setMinStakeDuration(uint256 _duration) external onlyRole(TIMELOCK_ROLE) {
@@ -253,13 +352,8 @@ contract ResurgeStakingPool is
         emit EarlyUnstakePenaltyUpdated(_penaltyBps);
     }
 
-    function pause() external onlyRole(EMERGENCY_PAUSER) {
-        _pause();
-    }
-
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    function pause() external onlyRole(EMERGENCY_PAUSER) { _pause(); }
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) { _unpause(); }
 
     function getVotingPower(address _account) public view returns (uint256) {
         return userStakedAmount[_account];
@@ -267,5 +361,5 @@ contract ResurgeStakingPool is
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(TIMELOCK_ROLE) {}
 
-    uint256[44] private __gap;
+    uint256[41] private __gap;
 }

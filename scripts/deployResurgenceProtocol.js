@@ -113,6 +113,7 @@ async function main() {
   const resurgenceGovernance = await ResurgenceGovernance.deploy(
     await resurgenceToken.getAddress(),
     await timelockController.getAddress(),
+    await resurgeStakingPool.getAddress(),
     votingDelay,
     votingPeriod,
     quorumPercentage,

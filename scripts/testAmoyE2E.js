@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
-const DEAD_COIN_ADDRESS = "0x26a657c4D4112ed78daE8cF40ffA159AD938683c";
-const POOL_PROXY_ADDRESS = "0xAa0510C739B14DaC10Df4EfbD1C093D3bd2662Ac";
+const DEAD_COIN_ADDRESS = "0x59624e0f5F0F76bb35107808d038Ed8eA24AAFFD"; // v4
+const POOL_PROXY_ADDRESS = "0xbc3f08b905e8cf6d2a5329867d77477c5bb6b808"; // v4
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 

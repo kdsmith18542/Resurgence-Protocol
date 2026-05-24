@@ -19,14 +19,14 @@
 
 const hre = require("hardhat");
 
-// Amoy spoke constants
-const AMOY_CCIP_ROUTER   = "0x9C32fCB86BF0f4a1A8921a9Fe46de3198bb884B2";
-const AMOY_LINK_TOKEN    = "0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904";
-const HUB_CHAIN_SELECTOR = "3478487238524512106"; // Arbitrum Sepolia
-const HUB_RECEIVER       = "0xF1384305959ebBC11838304127e619Ff3b1E36B4";
-const HUB_TIMELOCK       = "0x65ddC4419c34cCe678a9A6D44E05666af2B1D869";
-const SPOKE_RESURGE_TOKEN = "0x5cd4029539fc65b8c1ccd5d0aa544aa94adb48be";
-const DCSP_IMPL          = "0xaf7f52ecb9aa4c7c61e0d93c17b75e149d285afc";
+// Amoy spoke constants — v4 addresses
+const AMOY_CCIP_ROUTER    = "0x9C32fCB86BF0f4a1A8921a9Fe46de3198bb884B2";
+const AMOY_LINK_TOKEN     = "0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904";
+const HUB_CHAIN_SELECTOR  = "3478487238524512106"; // Arbitrum Sepolia
+const HUB_RECEIVER        = "0x8c2068d7bB1A897C1451806D3576bD7864e3e1aB"; // v4
+const HUB_TIMELOCK        = "0xf412aD48e83a2537f017b0CbeA5A990CCEA9cE87"; // v4
+const SPOKE_RESURGE_TOKEN = "0xD4f9ca34D21Df340252953926C4B16fcC3c5449D"; // v4 stub
+const DCSP_IMPL           = "0xB4BabB6b1E8E60A9b4EDa85296701Fe5906b2982"; // v4 impl
 
 function log(msg) { console.log(`[${new Date().toISOString().slice(0,19).replace("T"," ")}] ${msg}`); }
 
@@ -78,26 +78,38 @@ async function main() {
 
   const pool = DCSP.attach(poolAddr);
 
-  // 4. Wire: setCrossChainSender on pool (deployer has TIMELOCK_ROLE)
-  log("4. Setting CrossChainSender on pool...");
+  // 4. Set reward rate BEFORE renouncing roles
+  log("4. Setting reward rate to 1 RESURGE/sec...");
+  await (await pool.setRewardRate(hre.ethers.parseEther("1"))).wait();
+  log(`   Rate set: ${hre.ethers.formatEther(await pool.rewardRatePerSecond())} RESURGE/sec`);
+
+  // Wire: setCrossChainSender on pool (deployer has TIMELOCK_ROLE)
+  log("5. Setting CrossChainSender on pool...");
   await (await pool.setCrossChainSender(senderAddr)).wait();
   const storedSender = await pool.crossChainSender();
   log(`   crossChainSender: ${storedSender}`);
 
-  // 5. Authorize pool as caller on CrossChainSender (deployer has TIMELOCK_ROLE)
-  log("5. Authorizing pool as caller on CrossChainSender...");
+  // 6. Authorize pool as caller on CrossChainSender (deployer has TIMELOCK_ROLE)
+  log("6. Authorizing pool as caller on CrossChainSender...");
   await (await sender.authorizeCaller(poolAddr)).wait();
   const isAuth = await sender.authorizedCallers(poolAddr);
   log(`   authorizedCallers[pool]: ${isAuth}`);
 
-  // 6. Renounce deployer roles from pool (hub timelock retains TIMELOCK_ROLE)
-  log("6. Renouncing deployer roles from pool...");
+  // 7. Fund CrossChainSender with 10 LINK
+  log("7. Transferring 10 LINK to CrossChainSender...");
+  const erc20Abi = ["function transfer(address to, uint256 amount) external returns (bool)"];
+  const linkToken = await hre.ethers.getContractAt(erc20Abi, AMOY_LINK_TOKEN, deployer);
+  await (await linkToken.transfer(senderAddr, hre.ethers.parseEther("10"))).wait();
+  log("   LINK funded.");
+
+  // 8. Renounce deployer roles from pool (hub timelock retains TIMELOCK_ROLE)
+  log("8. Renouncing deployer roles from pool...");
   const POOL_TIMELOCK = await pool.TIMELOCK_ROLE();
   await (await pool.renounceRole(POOL_TIMELOCK, deployer.address)).wait();
   log("   Pool: deployer TIMELOCK_ROLE renounced.");
 
-  // 7. Renounce deployer roles from CrossChainSender (hub timelock retains TIMELOCK_ROLE)
-  log("7. Renouncing deployer roles from CrossChainSender...");
+  // 9. Renounce deployer roles from CrossChainSender (hub timelock retains TIMELOCK_ROLE)
+  log("9. Renouncing deployer roles from CrossChainSender...");
   const SENDER_DEFAULT_ADMIN = await sender.DEFAULT_ADMIN_ROLE();
   const SENDER_TIMELOCK = await sender.TIMELOCK_ROLE();
   await (await sender.renounceRole(SENDER_DEFAULT_ADMIN, deployer.address)).wait();

@@ -30,6 +30,7 @@ describe("ResurgenceGovernance", function () {
     const governance = await ResurgenceGovernance.deploy(
       await resurgeToken.getAddress(),
       await timelockController.getAddress(),
+      ethers.ZeroAddress, // stakingPool: not deployed in this fixture
       votingDelay,
       votingPeriod,
       quorumPercentage,

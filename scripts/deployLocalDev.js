@@ -106,7 +106,7 @@ async function main() {
 
   console.log("\n12. Deploying ResurgenceGovernance...");
   const ResurgenceGovernance = await hre.ethers.getContractFactory("ResurgenceGovernance");
-  const resurgenceGovernance = await ResurgenceGovernance.deploy(tokenAddr, timelockAddr, 1, 50400, 4, 1000n * 10n**18n);
+  const resurgenceGovernance = await ResurgenceGovernance.deploy(tokenAddr, timelockAddr, rspAddr, 1, 50400, 4, 1000n * 10n**18n);
   await resurgenceGovernance.waitForDeployment();
   const govAddr = await resurgenceGovernance.getAddress();
   console.log("   ResurgenceGovernance:", govAddr);

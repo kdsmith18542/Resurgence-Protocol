@@ -85,6 +85,7 @@ async function main() {
   const governance = await Governance.deploy(
     tokenAddress,
     timelockAddress,
+    resurgeStakingAddress,
     VOTING_DELAY,
     VOTING_PERIOD,
     QUORUM_PERCENTAGE,

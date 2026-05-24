@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 
 interface IRewardDistributorBridge {
@@ -11,8 +12,9 @@ interface IRewardDistributorBridge {
 /// @title CrossChainReceiver - CCIP message receiver on the Arbitrum hub
 /// @notice Receives reward-claim messages from spoke chains and triggers RESURGE minting
 /// @dev Non-upgradeable — router address is immutable; redeploy via deployCrossChainReceiver.js
-contract CrossChainReceiver is AccessControl {
+contract CrossChainReceiver is AccessControl, Pausable {
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
+    bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
 
     error CrossChainReceiver_InvalidRouter();
     error CrossChainReceiver_InvalidAddress();
@@ -20,9 +22,11 @@ contract CrossChainReceiver is AccessControl {
     error CrossChainReceiver_MessageAlreadyProcessed();
     error CrossChainReceiver_InvalidPayload();
     error CrossChainReceiver_OnlyRouter();
+    error CrossChainReceiver_AmountExceedsCap();
 
     address public immutable ccipRouter;
     address public rewardDistributor;
+    uint256 public maxBridgeMintPerMessage;
 
     /// @notice sourceChainSelector => abi.encode(senderAddress) that is trusted
     mapping(uint64 => bytes) public authorizedSources;
@@ -38,6 +42,7 @@ contract CrossChainReceiver is AccessControl {
     event SourceAuthorized(uint64 indexed chainSelector, bytes sender);
     event SourceRevoked(uint64 indexed chainSelector);
     event RewardDistributorUpdated(address indexed newDistributor);
+    event MaxBridgeMintUpdated(uint256 newMax);
 
     constructor(address _router, address _rewardDistributor, address _timelock) {
         if (_router == address(0)) revert CrossChainReceiver_InvalidRouter();
@@ -46,15 +51,18 @@ contract CrossChainReceiver is AccessControl {
 
         ccipRouter = _router;
         rewardDistributor = _rewardDistributor;
+        maxBridgeMintPerMessage = 100_000 * 1e18;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
+        _grantRole(EMERGENCY_PAUSER, _timelock);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(TIMELOCK_ROLE, msg.sender);
+        _grantRole(EMERGENCY_PAUSER, msg.sender);
     }
 
     /// @notice Called by the CCIP router when a cross-chain message arrives
-    function ccipReceive(Client.Any2EVMMessage calldata message) external {
+    function ccipReceive(Client.Any2EVMMessage calldata message) external whenNotPaused {
         if (msg.sender != ccipRouter) revert CrossChainReceiver_OnlyRouter();
         if (processedMessages[message.messageId])
             revert CrossChainReceiver_MessageAlreadyProcessed();
@@ -66,10 +74,21 @@ contract CrossChainReceiver is AccessControl {
         if (message.data.length < 64) revert CrossChainReceiver_InvalidPayload();
         (address user, uint256 amount) = abi.decode(message.data, (address, uint256));
 
+        if (amount > maxBridgeMintPerMessage) revert CrossChainReceiver_AmountExceedsCap();
+
         processedMessages[message.messageId] = true;
         IRewardDistributorBridge(rewardDistributor).mintForBridge(user, amount);
 
         emit RewardBridged(message.messageId, message.sourceChainSelector, user, amount);
+    }
+
+    function pause() external onlyRole(EMERGENCY_PAUSER) { _pause(); }
+    function unpause() external onlyRole(TIMELOCK_ROLE) { _unpause(); }
+
+    /// @notice Updates the per-message mint cap (governance-controlled)
+    function setMaxBridgeMintPerMessage(uint256 _max) external onlyRole(TIMELOCK_ROLE) {
+        maxBridgeMintPerMessage = _max;
+        emit MaxBridgeMintUpdated(_max);
     }
 
     /// @notice Authorize a spoke chain sender to submit bridge claims

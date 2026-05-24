@@ -1,6 +1,6 @@
 const hre = require("hardhat");
 
-const GOVERNANCE_ADDRESS = "0x2E3817C70Dc07e1Aa4239dCFfD62af28632b1228";
+const GOVERNANCE_ADDRESS = "0xfb6dD507a5a8e49b49C15CB851A488DB957c269B"; // v4
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
