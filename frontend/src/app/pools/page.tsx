@@ -217,6 +217,8 @@ export default function PoolsPage() {
   );
 }
 
+const CHRONONODE_URL = (process.env.NEXT_PUBLIC_CHRONONODE_URL || '').replace(/\/$/, '');
+
 function NonEvmStakingPanel() {
   const { address } = useAccount();
   const chainId = useChainId();
@@ -224,12 +226,12 @@ function NonEvmStakingPanel() {
 
   const [localWallets, setLocalWallets] = useState<{ chain: string; address: string }[]>([]);
   const [newWalletAddress, setNewWalletAddress] = useState('');
-  const [newWalletChain, setNewWalletChain] = useState<'bitcoin' | 'dogecoin' | 'litecoin'>('bitcoin');
+  const [newWalletChain, setNewWalletChain] = useState<'bitcoin' | 'dogecoin'>('bitcoin');
   const [simulatedDormancy, setSimulatedDormancy] = useState<Record<string, boolean>>({});
   const [simulatedAttested, setSimulatedAttested] = useState<Record<string, boolean>>({});
   const [loadingWallets, setLoadingWallets] = useState<Record<string, boolean>>({});
   const [walletStatus, setWalletStatus] = useState<Record<string, { status: string; dormantSince?: number; threshold?: number }>>({});
-  const [isSimMode, setIsSimMode] = useState(true);
+  const [isSimMode, setIsSimMode] = useState(!CHRONONODE_URL);
 
   // Load from local storage
   useEffect(() => {
@@ -310,7 +312,7 @@ function NonEvmStakingPanel() {
           };
         } else {
           try {
-            const res = await fetch(`http://localhost:8080/v1/chains/${w.chain}/addresses/${w.address}/dormancy`);
+            const res = await fetch(`${CHRONONODE_URL}/v1/chains/${w.chain}/addresses/${w.address}/dormancy`);
             if (res.ok) {
               const data = await res.json();
               newStatusMap[`${w.chain}:${w.address}`] = {
@@ -346,7 +348,7 @@ function NonEvmStakingPanel() {
     }
 
     try {
-      const res = await fetch('http://localhost:8080/v1/attestations/submit', {
+      const res = await fetch(`${CHRONONODE_URL}/v1/attestations/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -385,25 +387,27 @@ function NonEvmStakingPanel() {
             </span>
           </div>
           <p className="text-gray-400 text-sm mt-1">
-            Register your Bitcoin, Dogecoin, or Litecoin wallets. Claim rewards when ChronoNode verifies they have gone dormant.
+            Register your Bitcoin or Dogecoin wallets. Claim rewards when ChronoNode verifies they have gone dormant.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-gray-900/40 p-1.5 rounded-lg border border-gray-700/40 self-start md:self-auto">
-          <span className="text-xs text-gray-400 font-medium pl-2">Mode:</span>
-          <button
-            onClick={() => setIsSimMode(false)}
-            className={`px-3 py-1 rounded text-xs font-semibold transition-all ${!isSimMode ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            Live Node
-          </button>
-          <button
-            onClick={() => setIsSimMode(true)}
-            className={`px-3 py-1 rounded text-xs font-semibold transition-all ${isSimMode ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-          >
-            Simulation
-          </button>
-        </div>
+        {CHRONONODE_URL && (
+          <div className="flex items-center gap-3 bg-gray-900/40 p-1.5 rounded-lg border border-gray-700/40 self-start md:self-auto">
+            <span className="text-xs text-gray-400 font-medium pl-2">Mode:</span>
+            <button
+              onClick={() => setIsSimMode(false)}
+              className={`px-3 py-1 rounded text-xs font-semibold transition-all ${!isSimMode ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              Live Node
+            </button>
+            <button
+              onClick={() => setIsSimMode(true)}
+              className={`px-3 py-1 rounded text-xs font-semibold transition-all ${isSimMode ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              Simulation
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -419,7 +423,6 @@ function NonEvmStakingPanel() {
               >
                 <option value="bitcoin">Bitcoin (BTC)</option>
                 <option value="dogecoin">Dogecoin (DOGE)</option>
-                <option value="litecoin">Litecoin (LTC)</option>
               </select>
             </div>
 
@@ -462,8 +465,7 @@ function NonEvmStakingPanel() {
                 const isLoading = loadingWallets[wallet.address];
                 
                 const chainColor = wallet.chain === 'bitcoin' ? 'from-amber-500 to-orange-600 text-amber-500' :
-                                   wallet.chain === 'dogecoin' ? 'from-yellow-400 to-amber-500 text-yellow-400' :
-                                   'from-slate-400 to-zinc-500 text-slate-300';
+                                   'from-yellow-400 to-amber-500 text-yellow-400';
 
                 return (
                   <div key={mapKey} className="bg-gray-900/40 border border-gray-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-gray-600/50">
