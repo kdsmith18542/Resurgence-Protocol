@@ -232,6 +232,7 @@ function NonEvmStakingPanel() {
   const [loadingWallets, setLoadingWallets] = useState<Record<string, boolean>>({});
   const [walletStatus, setWalletStatus] = useState<Record<string, { status: string; dormantSince?: number; threshold?: number }>>({});
   const [isSimMode, setIsSimMode] = useState(!CHRONONODE_URL);
+  const [attestMessages, setAttestMessages] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   // Load from local storage
   useEffect(() => {
@@ -255,13 +256,39 @@ function NonEvmStakingPanel() {
     }
   };
 
+  // Batch on-chain isRegistered check for all saved wallets
+  const registrationReads = useMemo(() =>
+    nonEvmPoolAddress ? localWallets.map(w => ({
+      abi: ABIS.NonEvmStakingPool,
+      address: nonEvmPoolAddress as `0x${string}`,
+      functionName: 'isRegistered' as const,
+      args: [pad(stringToHex(w.chain), { dir: 'right', size: 32 }), w.address] as const,
+    })) : [],
+  [localWallets, nonEvmPoolAddress]);
+
+  const { data: registrationData } = useReadContracts({
+    contracts: registrationReads,
+    query: { enabled: !!nonEvmPoolAddress && localWallets.length > 0, refetchInterval: 30_000 },
+  });
+
+  const onChainRegistered = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    registrationData?.forEach((result, i) => {
+      if (result.status === 'success') {
+        const w = localWallets[i];
+        map[`${w.chain}:${w.address}`] = result.result as boolean;
+      }
+    });
+    return map;
+  }, [registrationData, localWallets]);
+
   // Wagmi Write Contract
   const { writeContract: writeRegistry } = useWriteContract();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newWalletAddress) return;
-    
+    if (!newWalletAddress || !address) return;
+
     const chainBytes32 = pad(stringToHex(newWalletChain), { dir: 'right', size: 32 });
 
     try {
@@ -272,7 +299,6 @@ function NonEvmStakingPanel() {
         args: [chainBytes32, newWalletAddress],
       });
 
-      // Save locally (we will confirm on-chain via getRegistration)
       const exists = localWallets.some(w => w.address.toLowerCase() === newWalletAddress.toLowerCase() && w.chain === newWalletChain);
       if (!exists) {
         saveWallets([...localWallets, { chain: newWalletChain, address: newWalletAddress }]);
@@ -296,7 +322,7 @@ function NonEvmStakingPanel() {
     saveWallets(updated);
   };
 
-  // Poll ChronoNode for status
+  // Poll ChronoNode for dormancy status (30s — data changes slowly)
   useEffect(() => {
     if (localWallets.length === 0) return;
 
@@ -304,11 +330,10 @@ function NonEvmStakingPanel() {
       const newStatusMap: typeof walletStatus = {};
       for (const w of localWallets) {
         if (isSimMode) {
-          // Simulation mode fallback
           newStatusMap[`${w.chain}:${w.address}`] = {
             status: simulatedAttested[w.address] ? 'attested' : simulatedDormancy[w.address] ? 'dormant' : 'active',
             dormantSince: 500000,
-            threshold: 26280
+            threshold: 26280,
           };
         } else {
           try {
@@ -318,12 +343,12 @@ function NonEvmStakingPanel() {
               newStatusMap[`${w.chain}:${w.address}`] = {
                 status: data.status,
                 dormantSince: data.dormant_since_block,
-                threshold: data.threshold_blocks
+                threshold: data.threshold_blocks,
               };
             } else {
               newStatusMap[`${w.chain}:${w.address}`] = { status: 'offline' };
             }
-          } catch (e) {
+          } catch {
             newStatusMap[`${w.chain}:${w.address}`] = { status: 'offline' };
           }
         }
@@ -332,18 +357,20 @@ function NonEvmStakingPanel() {
     };
 
     fetchStatuses();
-    const interval = setInterval(fetchStatuses, 5000);
+    const interval = setInterval(fetchStatuses, 30_000);
     return () => clearInterval(interval);
   }, [localWallets, isSimMode, simulatedDormancy, simulatedAttested]);
 
   const triggerAttestation = async (chain: string, walletAddr: string) => {
+    const key = `${chain}:${walletAddr}`;
     setLoadingWallets(prev => ({ ...prev, [walletAddr]: true }));
-    
+    setAttestMessages(prev => ({ ...prev, [key]: { ok: true, text: '' } }));
+
     if (isSimMode) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       setSimulatedAttested(prev => ({ ...prev, [walletAddr]: true }));
       setLoadingWallets(prev => ({ ...prev, [walletAddr]: false }));
-      alert("Simulation: Attestation submitted to BaaLS successfully! RESURGE rewards will be minted shortly.");
+      setAttestMessages(prev => ({ ...prev, [key]: { ok: true, text: 'Simulation: attestation submitted — 1,000 RESURGE will be minted.' } }));
       return;
     }
 
@@ -351,21 +378,16 @@ function NonEvmStakingPanel() {
       const res = await fetch(`${CHRONONODE_URL}/v1/attestations/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chain_id: chain,
-          address: walletAddr,
-          evm_wallet: address
-        })
+        body: JSON.stringify({ chain_id: chain, address: walletAddr, evm_wallet: address }),
       });
       const data = await res.json();
       if (res.ok) {
-        alert(`Attestation submitted successfully! Receipt: ${data.tx_hash || 'ok'}`);
+        setAttestMessages(prev => ({ ...prev, [key]: { ok: true, text: `Attestation submitted — 1,000 RESURGE minting. BaaLS sig: ${(data.baals_sig || data.tx_hash || 'ok').slice(0, 12)}…` } }));
       } else {
-        alert(`Submission failed: ${data.message || 'unknown error'}`);
+        setAttestMessages(prev => ({ ...prev, [key]: { ok: false, text: data.message || 'Submission failed.' } }));
       }
     } catch (e) {
-      console.error(e);
-      alert(`Network error submitting attestation: ${e}`);
+      setAttestMessages(prev => ({ ...prev, [key]: { ok: false, text: `Network error: ${e}` } }));
     } finally {
       setLoadingWallets(prev => ({ ...prev, [walletAddr]: false }));
     }
@@ -439,10 +461,10 @@ function NonEvmStakingPanel() {
 
             <button
               type="submit"
-              disabled={!newWalletAddress}
+              disabled={!newWalletAddress || !address}
               className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-blue-600/10"
             >
-              Register on EVM
+              {address ? 'Register on EVM' : 'Connect Wallet to Register'}
             </button>
           </form>
         </div>
@@ -463,90 +485,113 @@ function NonEvmStakingPanel() {
                 const mapKey = `${wallet.chain}:${wallet.address}`;
                 const statusInfo = walletStatus[mapKey] || { status: 'loading' };
                 const isLoading = loadingWallets[wallet.address];
-                
+                const isOnChain = onChainRegistered[mapKey];
+                const attestMsg = attestMessages[mapKey];
+
                 const chainColor = wallet.chain === 'bitcoin' ? 'from-amber-500 to-orange-600 text-amber-500' :
                                    'from-yellow-400 to-amber-500 text-yellow-400';
 
                 return (
-                  <div key={mapKey} className="bg-gray-900/40 border border-gray-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-gray-600/50">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${chainColor} bg-opacity-10 flex items-center justify-center font-bold text-lg border border-opacity-20 border-white`}>
-                        {wallet.chain[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-white text-sm capitalize">{wallet.chain}</span>
-                          {statusInfo.status === 'active' && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              Active (Monitoring)
-                            </span>
-                          )}
-                          {statusInfo.status === 'dormant' && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse">
-                              Dormant (Claimable!)
-                            </span>
-                          )}
-                          {statusInfo.status === 'attested' && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                              Attestation Submitted
-                            </span>
-                          )}
-                          {statusInfo.status === 'offline' && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
-                              Node Offline
-                            </span>
-                          )}
-                          {statusInfo.status === 'loading' && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/20">
-                              Checking...
-                            </span>
+                  <div key={mapKey} className="bg-gray-900/40 border border-gray-700/40 rounded-xl p-4 flex flex-col gap-3 transition-all hover:border-gray-600/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${chainColor} bg-opacity-10 flex items-center justify-center font-bold text-lg border border-opacity-20 border-white shrink-0`}>
+                          {wallet.chain[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            <span className="font-semibold text-white text-sm capitalize">{wallet.chain}</span>
+                            {isOnChain === true && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                                ✓ On-Chain
+                              </span>
+                            )}
+                            {isOnChain === false && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                                Pending Confirmation
+                              </span>
+                            )}
+                            {statusInfo.status === 'active' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                Active (Monitoring)
+                              </span>
+                            )}
+                            {statusInfo.status === 'dormant' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse">
+                                Dormant — Claimable!
+                              </span>
+                            )}
+                            {statusInfo.status === 'attested' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                Attested
+                              </span>
+                            )}
+                            {statusInfo.status === 'offline' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                                Node Offline
+                              </span>
+                            )}
+                            {statusInfo.status === 'loading' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/20">
+                                Checking…
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-gray-500 text-xs mt-1 font-mono truncate max-w-[260px]">{wallet.address}</p>
+                          {statusInfo.dormantSince !== undefined && statusInfo.dormantSince > 0 && (
+                            <p className="text-gray-600 text-[10px] mt-0.5">
+                              Dormant since block {statusInfo.dormantSince.toLocaleString()} · threshold {(statusInfo.threshold ?? 0).toLocaleString()} blocks
+                            </p>
                           )}
                         </div>
-                        <p className="text-gray-400 text-xs mt-1 font-mono">{wallet.address}</p>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-3 self-end sm:self-auto">
-                      {isSimMode && (
-                        <div className="flex items-center gap-2 mr-2">
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        {isSimMode && (
                           <button
                             onClick={() => setSimulatedDormancy(prev => ({ ...prev, [wallet.address]: !prev[wallet.address] }))}
                             className={`px-2 py-0.5 rounded text-[10px] border transition-all ${simulatedDormancy[wallet.address] ? 'bg-emerald-950 text-emerald-400 border-emerald-800' : 'bg-gray-950 text-gray-500 border-gray-800 hover:text-gray-300'}`}
                           >
-                            Dormant
+                            Sim Dormant
                           </button>
-                        </div>
-                      )}
+                        )}
 
-                      {statusInfo.status === 'dormant' && (
+                        {statusInfo.status === 'dormant' && (
+                          <button
+                            disabled={isLoading}
+                            onClick={() => triggerAttestation(wallet.chain, wallet.address)}
+                            className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 disabled:opacity-60 text-white text-xs font-semibold py-1.5 px-3.5 rounded-lg shadow-lg shadow-emerald-500/15 flex items-center gap-1.5 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                          >
+                            {isLoading ? 'Attesting…' : 'Claim 1,000 RESURGE'}
+                          </button>
+                        )}
+
+                        {statusInfo.status === 'attested' && !attestMsg && (
+                          <span className="text-xs font-semibold text-purple-400 flex items-center gap-1 bg-purple-950/20 border border-purple-900/30 px-2.5 py-1 rounded-lg">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Rewards Claimed
+                          </span>
+                        )}
+
                         <button
-                          disabled={isLoading}
-                          onClick={() => triggerAttestation(wallet.chain, wallet.address)}
-                          className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white text-xs font-semibold py-1.5 px-3.5 rounded-lg shadow-lg shadow-emerald-500/15 flex items-center gap-1.5 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                          onClick={() => handleUnregister(wallet.chain, wallet.address)}
+                          className="text-gray-600 hover:text-red-400 p-1.5 rounded hover:bg-gray-800/40 transition-all"
+                          title="Unregister wallet"
                         >
-                          {isLoading ? 'Attesting...' : 'Claim Reward'}
-                        </button>
-                      )}
-
-                      {statusInfo.status === 'attested' && (
-                        <span className="text-xs font-semibold text-purple-400 flex items-center gap-1 bg-purple-950/20 border border-purple-900/30 px-2.5 py-1 rounded-lg">
-                          <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                          Claimed (+1k)
-                        </span>
-                      )}
-
-                      <button
-                        onClick={() => handleUnregister(wallet.chain, wallet.address)}
-                        className="text-gray-500 hover:text-red-400 text-xs p-1.5 rounded hover:bg-gray-800/40 transition-all"
-                        title="Unregister wallet"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                        </button>
+                      </div>
                     </div>
+
+                    {attestMsg?.text && (
+                      <div className={`text-xs px-3 py-2 rounded-lg border ${attestMsg.ok ? 'bg-emerald-950/30 border-emerald-800/40 text-emerald-300' : 'bg-red-950/30 border-red-800/40 text-red-300'}`}>
+                        {attestMsg.text}
+                      </div>
+                    )}
                   </div>
                 );
               })}
