@@ -47,7 +47,7 @@ const CHAIN_CONFIG = [
     key: "arbitrum_sepolia",
     label: "Arbitrum Sepolia",
     chainId: 421614,
-    rpcUrl: process.env.ARBITRUM_SEPOLIA_RPC_URL || "https://arbitrum-sepolia-rpc.publicnode.com",
+    rpcUrl: process.env.ARBITRUM_SEPOLIA_RPC_URL || "https://arbitrum-sepolia.drpc.org",
     contracts: [
       { name: "ResurgeToken", address: "0xa95D4aD543BCfCeee94CdF3F4CcFb3826280AfE0", artifact: "contracts/ResurgeToken.sol/ResurgeToken.json" },
       { name: "TimelockController", address: "0xf412aD48e83a2537f017b0CbeA5A990CCEA9cE87", artifact: "contracts/ResurgenceTimelockController.sol/ResurgenceTimelockController.json" },
@@ -123,9 +123,9 @@ function timestampSlug(isoUtc) {
 async function findFirstCodeBlock(provider, address, latestBlock) {
   try {
     const atLatest = await provider.getCode(address, latestBlock);
-    if (!atLatest || atLatest === "0x") return { block: null, source: "missing_code_at_latest" };
+    if (!atLatest || atLatest === "0x") return null;
   } catch (err) {
-    return { block: null, source: "latest_code_lookup_failed", error: String(err.message || err) };
+    return null;
   }
 
   let low = 0;
@@ -140,14 +140,10 @@ async function findFirstCodeBlock(provider, address, latestBlock) {
         low = mid + 1;
       }
     } catch (err) {
-      return {
-        block: null,
-        source: "historical_code_lookup_unavailable",
-        error: String(err.message || err),
-      };
+      return null;
     }
   }
-  return { block: low, source: "historical_code_binary_search" };
+  return low;
 }
 
 async function collectChainSection(chainCfg, abiCache) {
@@ -165,7 +161,7 @@ async function collectChainSection(chainCfg, abiCache) {
       fail(`${chainCfg.label}: no contract code at ${checksumAddress} (${c.name})`);
     }
 
-    const firstCode = await findFirstCodeBlock(provider, checksumAddress, latestBlockNumber);
+    const deploymentBlock = await findFirstCodeBlock(provider, checksumAddress, latestBlockNumber);
     const codeHash = ethers.keccak256(code);
     const codeSizeBytes = Math.max(0, Math.floor((code.length - 2) / 2));
 
@@ -177,9 +173,7 @@ async function collectChainSection(chainCfg, abiCache) {
       name: c.name,
       address: checksumAddress,
       artifact_path: `artifacts/${c.artifact}`,
-      deployment_block: firstCode.block,
-      deployment_block_source: firstCode.source,
-      deployment_block_lookup_error: firstCode.error || null,
+      deployment_block: deploymentBlock,
       code_hash: codeHash,
       code_size_bytes: codeSizeBytes,
       abi: abiCache[c.artifact],

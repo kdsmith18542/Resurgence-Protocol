@@ -5,18 +5,18 @@ Date completed (UTC): 2026-05-26
 ## Anchored Manifest
 
 - Manifest file:
-  - `deployments/resurgence-deployment-manifest-20260526T051922Z.json`
+  - `deployments/resurgence-deployment-manifest-20260526T053050Z.json`
 - Manifest SHA-256:
-  - `c71358a47210939a03900afeb2a61ba2f3bf20bfbeca9eca27f4f97653865323`
+  - `578a1684a16d3c51c128e15eac471300c25c378403655106b15e1b9b237b7887`
 - Irys tx id:
-  - `2EXRPtLBWRzwHhRgAcJCRztXS6f1vGYd6HZtRV24tPuc`
+  - `GUy6Qzu3PndjoXrETGnFnhafne5HwJzp76cgspRRGaMP`
 - Gateway URL:
-  - `https://gateway.irys.xyz/2EXRPtLBWRzwHhRgAcJCRztXS6f1vGYd6HZtRV24tPuc`
+  - `https://gateway.irys.xyz/GUy6Qzu3PndjoXrETGnFnhafne5HwJzp76cgspRRGaMP`
 
 ## Command Used
 
 ```bash
-node scripts/anchorDeploymentManifest.js
+ARBITRUM_SEPOLIA_RPC_URL=https://arbitrum-sepolia.drpc.org node scripts/anchorDeploymentManifest.js
 ```
 
 ## Notes
@@ -29,4 +29,11 @@ node scripts/anchorDeploymentManifest.js
   - Arbitrum Sepolia hub + Amoy/Base Sepolia spoke addresses
   - ABI snapshots from `artifacts/`
   - chain snapshot metadata and contract code hashes
-  - deployment block lookup metadata (with graceful fallback on non-archive RPC)
+  - exact deployment blocks where archive state was available
+  - `deployment_block: null` where exact historical state lookup was unavailable
+
+## Superseded Anchor
+
+- Previous tx id: `2EXRPtLBWRzwHhRgAcJCRztXS6f1vGYd6HZtRV24tPuc`
+- Previous manifest: `deployments/resurgence-deployment-manifest-20260526T051922Z.json`
+- Reason superseded: retained provider fallback diagnostics that were removed from the canonical manifest.
