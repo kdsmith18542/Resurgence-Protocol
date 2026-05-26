@@ -1,0 +1,16 @@
+{
+  "schema_version": "resurgence:arweave-anchors:v1",
+  "anchors": [
+    {
+      "timestamp_utc": "2026-05-26T05:19:22.984Z",
+      "status": "uploaded",
+      "tx_id": "2EXRPtLBWRzwHhRgAcJCRztXS6f1vGYd6HZtRV24tPuc",
+      "manifest_path": "deployments/resurgence-deployment-manifest-20260526T051922Z.json",
+      "manifest_sha256": "c71358a47210939a03900afeb2a61ba2f3bf20bfbeca9eca27f4f97653865323",
+      "irys_network": "devnet",
+      "irys_token": "matic",
+      "irys_provider_url": "https://rpc-amoy.polygon.technology",
+      "gateway_url": "https://gateway.irys.xyz/2EXRPtLBWRzwHhRgAcJCRztXS6f1vGYd6HZtRV24tPuc"
+    }
+  ]
+}

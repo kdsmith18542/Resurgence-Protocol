@@ -48,6 +48,7 @@
   "description": "",
   "dependencies": {
     "@chainlink/contracts-ccip": "^1.6.4",
+    "@irys/sdk": "^0.2.11",
     "@openzeppelin/hardhat-upgrades": "^3.9.0"
   }
 }
