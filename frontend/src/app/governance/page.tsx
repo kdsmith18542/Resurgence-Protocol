@@ -1,6 +1,6 @@
 'use client';
-import { useAccount } from 'wagmi';
-import { useState, useEffect } from 'react';
+import { useAccount, useBlockNumber } from 'wagmi';
+import { useState, useEffect, useMemo } from 'react';
 import { ProposalInfo, ProposalState } from '@/types';
 import ProposalCard from '@/components/ProposalCard';
 import CreateProposalForm from '@/components/CreateProposalForm';
@@ -10,11 +10,25 @@ import { useGovernance } from '@/hooks/useGovernance';
 import { formatTokenAmount } from '@/lib/utils';
 import { fetchProposals, type SubgraphProposal } from '@/lib/graphql';
 
-function mapSubgraphProposal(p: SubgraphProposal): ProposalInfo {
-  let state = ProposalState.Pending;
-  if (p.executed) state = ProposalState.Executed;
-  else if (p.canceled) state = ProposalState.Canceled;
-  else state = ProposalState.Active;
+function mapSubgraphProposal(p: SubgraphProposal, currentBlock?: bigint): ProposalInfo {
+  let state: ProposalState;
+  if (p.executed) {
+    state = ProposalState.Executed;
+  } else if (p.canceled) {
+    state = ProposalState.Canceled;
+  } else if (currentBlock !== undefined) {
+    const start = BigInt(p.startBlock);
+    const end = BigInt(p.endBlock);
+    if (currentBlock < start) {
+      state = ProposalState.Pending;
+    } else if (currentBlock <= end) {
+      state = ProposalState.Active;
+    } else {
+      state = ProposalState.Defeated;
+    }
+  } else {
+    state = ProposalState.Active;
+  }
 
   return {
     id: p.id,
@@ -33,13 +47,19 @@ export default function GovernancePage() {
   const { isConnected } = useAccount();
   const [showCreate, setShowCreate] = useState(false);
   const { votingDelay, votingPeriod } = useGovernance();
-  const [proposals, setProposals] = useState<ProposalInfo[]>([]);
+  const [rawProposals, setRawProposals] = useState<SubgraphProposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: currentBlock } = useBlockNumber({ watch: false, chainId: 421614 });
+
+  const proposals = useMemo(
+    () => rawProposals.map(p => mapSubgraphProposal(p, currentBlock)),
+    [rawProposals, currentBlock],
+  );
 
   useEffect(() => {
     (async () => {
       const data = await fetchProposals();
-      if (data) setProposals(data.map(mapSubgraphProposal));
+      if (data) setRawProposals(data);
       setLoading(false);
     })();
   }, []);

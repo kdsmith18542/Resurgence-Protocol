@@ -56,9 +56,43 @@ export default function PoolsPage() {
     })();
   }, [address, chainId, subgraphAvailable]);
 
-  const deadCoinAddresses = useMemo(
-    () => pools.map(p => p.deadCoinAddress as `0x${string}`).filter(Boolean),
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
+  // For pools where the subgraph couldn't resolve deadCoinToken (bootstrapped pools),
+  // fetch the actual address directly from the contract.
+  const zeroDeadCoinIndices = useMemo(
+    () => pools.reduce<number[]>((acc, p, i) => {
+      if (p.deadCoinAddress === ZERO_ADDR) acc.push(i);
+      return acc;
+    }, []),
     [pools]
+  );
+
+  const { data: resolvedDeadCoins } = useReadContracts({
+    contracts: zeroDeadCoinIndices.map(i => ({
+      abi: ABIS.DeadCoinStakingPool,
+      address: pools[i].address as `0x${string}`,
+      functionName: 'deadCoin' as const,
+    })),
+    query: { enabled: zeroDeadCoinIndices.length > 0 },
+  });
+
+  const poolsWithResolvedDeadCoins = useMemo(() => {
+    if (!resolvedDeadCoins || zeroDeadCoinIndices.length === 0) return pools;
+    return pools.map((pool, i) => {
+      const resolvedIdx = zeroDeadCoinIndices.indexOf(i);
+      if (resolvedIdx === -1) return pool;
+      const resolved = resolvedDeadCoins[resolvedIdx]?.result as string | undefined;
+      if (!resolved || resolved === ZERO_ADDR) return pool;
+      return { ...pool, deadCoinAddress: resolved, deadCoinName: resolved.slice(0, 10) };
+    });
+  }, [pools, resolvedDeadCoins, zeroDeadCoinIndices]);
+
+  const deadCoinAddresses = useMemo(
+    () => poolsWithResolvedDeadCoins
+      .map(p => p.deadCoinAddress as `0x${string}`)
+      .filter(a => !!a && a !== ZERO_ADDR),
+    [poolsWithResolvedDeadCoins]
   );
 
   const { data: symbolResults } = useReadContracts({
@@ -71,11 +105,17 @@ export default function PoolsPage() {
   });
 
   const poolsWithSymbols = useMemo(() =>
-    pools.map((pool, i) => ({
-      ...pool,
-      deadCoinSymbol: (symbolResults?.[i]?.result as string) || '???',
-    })),
-    [pools, symbolResults]
+    poolsWithResolvedDeadCoins.map((pool, i) => {
+      const dcAddr = pool.deadCoinAddress;
+      const addrIdx = dcAddr && dcAddr !== ZERO_ADDR
+        ? deadCoinAddresses.indexOf(dcAddr as `0x${string}`)
+        : -1;
+      return {
+        ...pool,
+        deadCoinSymbol: addrIdx >= 0 ? ((symbolResults?.[addrIdx]?.result as string) || '???') : '???',
+      };
+    }),
+    [poolsWithResolvedDeadCoins, deadCoinAddresses, symbolResults]
   );
 
   const totalTVL = useMemo(() =>

@@ -8,7 +8,8 @@ import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRou
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 
 /// @title CrossChainSender - CCIP message sender deployed on each spoke chain
-/// @notice DeadCoinStakingPool instances call sendRewardClaim() to bridge accrued debt to the hub
+/// @notice DeadCoinStakingPool instances call sendRewardClaim() (CCIP path) or
+///         bridgeClaimRelay() (BaaLS relay path) to bridge accrued debt to the hub.
 /// @dev Non-upgradeable; LINK-funded; one deployment per spoke chain
 contract CrossChainSender is AccessControl {
     using SafeERC20 for IERC20;
@@ -20,6 +21,8 @@ contract CrossChainSender is AccessControl {
     error CrossChainSender_InsufficientLinkBalance();
     error CrossChainSender_ChainNotSupported();
     error CrossChainSender_FeeTooHigh();
+    error CrossChainSender_CCIPDisabled();
+    error CrossChainSender_RelayDisabled();
 
     IRouterClient public immutable router;
     IERC20 public immutable linkToken;
@@ -29,7 +32,12 @@ contract CrossChainSender is AccessControl {
     uint256 public maxLinkFee;   // safety cap — prevents fee drain on misconfigured hub
     uint256 public gasLimit;
 
-    /// @notice Only registered DeadCoinStakingPool proxies may call sendRewardClaim
+    bool public ccipEnabled;   // governance can disable CCIP path
+    bool public relayEnabled;  // governance can disable relay path
+
+    uint256 public relayNonce; // monotonically increasing per-sender nonce for replay protection
+
+    /// @notice Only registered DeadCoinStakingPool proxies may call sendRewardClaim/bridgeClaimRelay
     mapping(address => bool) public authorizedCallers;
 
     event RewardClaimSent(
@@ -38,10 +46,18 @@ contract CrossChainSender is AccessControl {
         uint256 amount,
         uint256 ccipFee
     );
+    /// @notice Emitted when a relay bridge claim is queued for BaaLS EVMSubmitter pickup
+    event BridgeClaimRequested(
+        address indexed staker,
+        uint256 amount,
+        uint256 nonce
+    );
     event CallerAuthorized(address indexed caller);
     event CallerRevoked(address indexed caller);
     event HubUpdated(uint64 chainSelector, address receiver);
     event LinkWithdrawn(address indexed to, uint256 amount);
+    event CCIPEnabledSet(bool enabled);
+    event RelayEnabledSet(bool enabled);
 
     constructor(
         address _router,
@@ -59,6 +75,8 @@ contract CrossChainSender is AccessControl {
         hubReceiver = _hubReceiver;
         maxLinkFee = 1e18;    // 1 LINK default cap
         gasLimit = 200_000;
+        ccipEnabled = true;
+        relayEnabled = true;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
@@ -75,6 +93,7 @@ contract CrossChainSender is AccessControl {
         returns (bytes32 messageId)
     {
         if (!authorizedCallers[msg.sender]) revert CrossChainSender_UnauthorizedCaller();
+        if (!ccipEnabled) revert CrossChainSender_CCIPDisabled();
         if (!router.isChainSupported(hubChainSelector)) revert CrossChainSender_ChainNotSupported();
 
         bytes memory payload = abi.encode(user, amount);
@@ -126,6 +145,31 @@ contract CrossChainSender is AccessControl {
     /// @notice Update gas limit for CCIP destination execution
     function setGasLimit(uint256 _gasLimit) external onlyRole(TIMELOCK_ROLE) {
         gasLimit = _gasLimit;
+    }
+
+    /// @notice Queue a reward claim for relay via BaaLS EVMSubmitter (no CCIP, no LINK fee)
+    /// @param staker The user whose reward should be minted on the hub
+    /// @param amount Total RESURGE to mint on the hub
+    /// @dev Emits BridgeClaimRequested; BaaLS EVMSubmitter watches this event and calls
+    ///      RewardDistributor.mintForRelay(staker, amount, address(this), nonce) on the hub.
+    ///      The nonce + sender address form a globally unique replay-protection key on the hub.
+    function bridgeClaimRelay(address staker, uint256 amount) external {
+        if (!authorizedCallers[msg.sender]) revert CrossChainSender_UnauthorizedCaller();
+        if (!relayEnabled) revert CrossChainSender_RelayDisabled();
+        uint256 nonce = relayNonce++;
+        emit BridgeClaimRequested(staker, amount, nonce);
+    }
+
+    /// @notice Enable or disable the CCIP bridge path
+    function setCCIPEnabled(bool _enabled) external onlyRole(TIMELOCK_ROLE) {
+        ccipEnabled = _enabled;
+        emit CCIPEnabledSet(_enabled);
+    }
+
+    /// @notice Enable or disable the BaaLS relay bridge path
+    function setRelayEnabled(bool _enabled) external onlyRole(TIMELOCK_ROLE) {
+        relayEnabled = _enabled;
+        emit RelayEnabledSet(_enabled);
     }
 
     /// @notice Withdraw LINK from this contract (governance emergency recovery)

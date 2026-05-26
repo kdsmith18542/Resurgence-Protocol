@@ -18,6 +18,19 @@ type User @entity {
   rewardClaimEvents: [RewardClaimEvent!] @derivedFrom(field: "user")
   votes: [VoteReceipt!] @derivedFrom(field: "voter")
   bridgeClaimEvents: [BridgeClaimEvent!] @derivedFrom(field: "user")
+  nonEvmWallets: [NonEvmWallet!] @derivedFrom(field: "staker")
+}
+
+type NonEvmWallet @entity {
+  id: Bytes!
+  chainId: Bytes!
+  walletHash: Bytes!
+  wallet: String!
+  staker: User!
+  registeredAt: BigInt!
+  active: Boolean!
+  registeredAtBlock: BigInt!
+  registeredAtTx: Bytes!
 }
 
 type StakingPool @entity {

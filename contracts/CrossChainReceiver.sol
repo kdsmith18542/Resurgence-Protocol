@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
+import {IAny2EVMMessageReceiver} from "@chainlink/contracts-ccip/contracts/interfaces/IAny2EVMMessageReceiver.sol";
 
 interface IRewardDistributorBridge {
     function mintForBridge(address user, uint256 amount) external;
@@ -80,6 +81,11 @@ contract CrossChainReceiver is AccessControl, Pausable {
         IRewardDistributorBridge(rewardDistributor).mintForBridge(user, amount);
 
         emit RewardBridged(message.messageId, message.sourceChainSelector, user, amount);
+    }
+
+    /// @notice Required so CCIP Router recognises this contract as a valid message receiver.
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function pause() external onlyRole(EMERGENCY_PAUSER) { _pause(); }

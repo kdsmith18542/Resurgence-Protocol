@@ -93,7 +93,7 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: ResurgenceGovernance
-      address: "0x2E3817C70Dc07e1Aa4239dCFfD62af28632b1228"
+      address: "0xfb6dD507a5a8e49b49C15CB851A488DB957c269B"
       startBlock: 270500000
     mapping:
       kind: ethereum/events
@@ -125,7 +125,7 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: ResurgenceTimelockController
-      address: "0x65ddC4419c34cCe678a9A6D44E05666af2B1D869"
+      address: "0xf412aD48e83a2537f017b0CbeA5A990CCEA9cE87"
       startBlock: 270500000
     mapping:
       kind: ethereum/events
@@ -174,6 +174,30 @@ dataSources:
         - event: RewardsClaimed(indexed address,uint256)
           handler: handleResurgeRewardsClaimed
       file: ./src/mappings/resurgeStaking.ts
+
+  - kind: ethereum
+    name: NonEvmStakingPool
+    network: arbitrum-sepolia
+    source:
+      abi: NonEvmStakingPool
+      address: "0x1Eeb1269EB0511Db788bB72668E8AD0084819591"
+      startBlock: 270500000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - NonEvmWallet
+        - User
+      abis:
+        - name: NonEvmStakingPool
+          file: ./abi/NonEvmStakingPool.json
+      eventHandlers:
+        - event: WalletRegistered(indexed bytes32,indexed bytes32,string,indexed address,uint256)
+          handler: handleWalletRegistered
+        - event: WalletUnregistered(indexed bytes32,indexed bytes32,string,indexed address)
+          handler: handleWalletUnregistered
+      file: ./src/mappings/nonEvmStaking.ts
 
 templates:
   - kind: ethereum

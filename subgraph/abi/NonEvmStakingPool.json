@@ -1,0 +1,25 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "chainId", "type": "bytes32" },
+      { "indexed": true, "internalType": "bytes32", "name": "walletHash", "type": "bytes32" },
+      { "indexed": false, "internalType": "string", "name": "wallet", "type": "string" },
+      { "indexed": true, "internalType": "address", "name": "staker", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "registeredAt", "type": "uint256" }
+    ],
+    "name": "WalletRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "chainId", "type": "bytes32" },
+      { "indexed": true, "internalType": "bytes32", "name": "walletHash", "type": "bytes32" },
+      { "indexed": false, "internalType": "string", "name": "wallet", "type": "string" },
+      { "indexed": true, "internalType": "address", "name": "staker", "type": "address" }
+    ],
+    "name": "WalletUnregistered",
+    "type": "event"
+  }
+]

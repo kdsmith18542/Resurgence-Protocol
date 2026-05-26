@@ -9,8 +9,8 @@ dataSources:
     network: base-sepolia
     source:
       abi: StakingPoolManager
-      address: "REPLACE_BASE_SEPOLIA_STAKING_POOL_MANAGER"
-      startBlock: 0
+      address: "0xA136dEC46B31E85231c175A600cB877e1fc9613E"
+      startBlock: 41940000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -35,6 +35,41 @@ dataSources:
         - event: ImplementationUpdated(indexed address)
           handler: handleImplementationUpdated
       file: ./src/mappings/pools.ts
+
+  - kind: ethereum
+    name: DeadCoinStakingPool_Direct
+    network: base-sepolia
+    source:
+      abi: DeadCoinStakingPool
+      address: "0x3E57Fbb56f8342f7c1A311d9c1a6FB7ea472b14D"
+      startBlock: 41940000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - StakingPool
+        - StakingPosition
+        - StakingEvent
+        - RewardClaimEvent
+        - BridgeClaimEvent
+        - ProtocolMetrics
+      abis:
+        - name: DeadCoinStakingPool
+          file: ./abi/DeadCoinStakingPool.json
+      eventHandlers:
+        - event: Staked(indexed address,uint256)
+          handler: handleStaked
+        - event: Unstaked(indexed address,uint256)
+          handler: handleUnstaked
+        - event: RewardsClaimed(indexed address,uint256)
+          handler: handleRewardsClaimed
+        - event: RewardRateUpdated(uint256)
+          handler: handleRewardRateUpdated
+        - event: BridgeClaimed(indexed address,uint256,bytes32)
+          handler: handleBridgeClaimed
+      file: ./src/mappings/staking.ts
 
 templates:
   - kind: ethereum

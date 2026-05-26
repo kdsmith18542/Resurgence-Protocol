@@ -33,7 +33,7 @@ export function handleStakingPoolAdded(event: StakingPoolAdded): void {
   let poolAddress = event.params.poolAddress
 
   let pool = new StakingPool(
-    Bytes.fromHexString(deadCoinAddress.toHexString())
+    Bytes.fromHexString(poolAddress.toHexString())
   )
   pool.deadCoinToken = deadCoinAddress
   pool.poolAddress = poolAddress

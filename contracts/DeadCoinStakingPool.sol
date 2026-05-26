@@ -16,6 +16,7 @@ interface IRewardDistributor {
 
 interface ICrossChainSender {
     function sendRewardClaim(address user, uint256 amount) external returns (bytes32 messageId);
+    function bridgeClaimRelay(address staker, uint256 amount) external;
 }
 
 // Custom errors for gas efficiency
@@ -309,6 +310,32 @@ contract DeadCoinStakingPool is
 
         bytes32 messageId = ICrossChainSender(crossChainSender).sendRewardClaim(msg.sender, bridgeAmount);
         emit BridgeClaimed(msg.sender, bridgeAmount, messageId);
+    }
+
+    /// @notice Claims accrued rewards via the BaaLS relay path (no LINK required).
+    ///         Emits BridgeClaimRequested on the CrossChainSender; BaaLS EVMSubmitter
+    ///         watches that event and calls RewardDistributor.mintForRelay() on the hub.
+    function bridgeClaimRelay() external whenNotPaused updateReward(msg.sender) nonReentrant {
+        if (crossChainSender == address(0)) revert BridgeNotConfigured();
+
+        uint256 rewards = userRewards[msg.sender];
+        if (rewards == 0) revert InvalidAmount();
+
+        userRewards[msg.sender] = 0;
+
+        uint256 bridgeAmount = rewards;
+        // Protocol fee is minted locally only if rewardDistributor is real (hub pools).
+        // Spoke pools set rewardDistributor to a stub — skip fee to avoid reverts.
+        if (protocolFeeBps > 0 && treasury != address(0) && rewardDistributor != address(0)) {
+            uint256 fee = (rewards * protocolFeeBps) / 10000;
+            bridgeAmount = rewards - fee;
+            bool feeOk = IRewardDistributor(rewardDistributor).mintAndDistribute(treasury, fee);
+            if (!feeOk) revert RewardMintingFailed();
+            emit ProtocolFeePaid(address(this), treasury, fee);
+        }
+
+        ICrossChainSender(crossChainSender).bridgeClaimRelay(msg.sender, bridgeAmount);
+        emit BridgeClaimed(msg.sender, bridgeAmount, bytes32(0));
     }
 
     /// @notice Sets the CrossChainSender address for spoke-chain bridge claims

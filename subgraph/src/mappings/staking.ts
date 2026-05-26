@@ -35,6 +35,28 @@ function getOrCreateUser(address: Address): User {
   return user
 }
 
+function getOrCreatePool(poolAddress: Address, timestamp: BigInt): StakingPool {
+  let poolId = Bytes.fromHexString(poolAddress.toHexString())
+  let pool = StakingPool.load(poolId)
+  if (pool == null) {
+    // Pool was deployed directly (not via StakingPoolManager) — bootstrap without archive call
+    pool = new StakingPool(poolId)
+    pool.deadCoinToken = Address.zero()
+    pool.poolAddress = poolAddress
+    pool.resurgeToken = Bytes.empty()
+    pool.rewardRatePerSecond = ZERO_BI
+    pool.lastUpdateTime = ZERO_BI
+    pool.rewardPerTokenStored = ZERO_BI
+    pool.totalStaked = ZERO_BI
+    pool.paused = false
+    pool.createdAt = timestamp
+    pool.stakerCount = ZERO_BI
+    pool.save()
+    log.info('getOrCreatePool: bootstrapped directly-deployed pool {}', [poolAddress.toHexString()])
+  }
+  return pool
+}
+
 function getOrCreatePosition(
   userAddress: Address,
   poolAddress: Address
@@ -82,12 +104,7 @@ export function handleStaked(event: Staked): void {
 
   let user = getOrCreateUser(userAddress)
   let userId = Bytes.fromHexString(userAddress.toHexString())
-  let pool = StakingPool.load(Bytes.fromHexString(poolAddress.toHexString()))
-
-  if (pool == null) {
-    log.warning('handleStaked: pool not found for {}', [poolAddress.toHexString()])
-    return
-  }
+  let pool = getOrCreatePool(poolAddress, event.block.timestamp)
 
   let wasZero = user.stakedBalance.isZero()
 
@@ -127,12 +144,7 @@ export function handleUnstaked(event: Unstaked): void {
 
   let user = getOrCreateUser(userAddress)
   let userId = Bytes.fromHexString(userAddress.toHexString())
-  let pool = StakingPool.load(Bytes.fromHexString(poolAddress.toHexString()))
-
-  if (pool == null) {
-    log.warning('handleUnstaked: pool not found for {}', [poolAddress.toHexString()])
-    return
-  }
+  let pool = getOrCreatePool(poolAddress, event.block.timestamp)
 
   if (user.stakedBalance.ge(amount)) {
     user.stakedBalance = user.stakedBalance.minus(amount)
@@ -178,12 +190,7 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
 
   let user = getOrCreateUser(userAddress)
   let userId = Bytes.fromHexString(userAddress.toHexString())
-  let pool = StakingPool.load(Bytes.fromHexString(poolAddress.toHexString()))
-
-  if (pool == null) {
-    log.warning('handleRewardsClaimed: pool not found for {}', [poolAddress.toHexString()])
-    return
-  }
+  let pool = getOrCreatePool(poolAddress, event.block.timestamp)
 
   user.totalResurgeEarned = user.totalResurgeEarned.plus(amount)
   user.rewardsClaimed = user.rewardsClaimed.plus(amount)
@@ -211,11 +218,9 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
 }
 
 export function handleRewardRateUpdated(event: RewardRateUpdated): void {
-  let pool = StakingPool.load(Bytes.fromHexString(event.address.toHexString()))
-  if (pool != null) {
-    pool.rewardRatePerSecond = event.params.newRatePerSecond
-    pool.save()
-  }
+  let pool = getOrCreatePool(event.address, event.block.timestamp)
+  pool.rewardRatePerSecond = event.params.newRatePerSecond
+  pool.save()
 }
 
 export function handleBridgeClaimed(event: BridgeClaimed): void {
@@ -226,12 +231,7 @@ export function handleBridgeClaimed(event: BridgeClaimed): void {
 
   let user = getOrCreateUser(userAddress)
   let userId = Bytes.fromHexString(userAddress.toHexString())
-  let pool = StakingPool.load(Bytes.fromHexString(poolAddress.toHexString()))
-
-  if (pool == null) {
-    log.warning('handleBridgeClaimed: pool not found for {}', [poolAddress.toHexString()])
-    return
-  }
+  let pool = getOrCreatePool(poolAddress, event.block.timestamp)
 
   user.totalResurgeEarned = user.totalResurgeEarned.plus(amount)
   user.rewardsClaimed = user.rewardsClaimed.plus(amount)

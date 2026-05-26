@@ -18,6 +18,18 @@ interface IPriceOracle {
     function decimals() external view returns (uint8);
 }
 
+interface ISP1DormancyVerifier {
+    function verifyDormancyProof(
+        bytes calldata proof,
+        bytes calldata publicInputs,
+        bytes32 chainId,
+        string calldata address,
+        uint64 dormantSinceBlock,
+        uint64 currentBlock,
+        uint64 thresholdBlocks
+    ) external returns (bytes32 proofHash);
+}
+
 /// @title RewardDistributor - Manages the minting and distribution of RESURGE rewards
 /// @notice This contract is authorized to mint RESURGE tokens and is called by staking pools
 /// @dev Implements AccessControl for management and Pausable for emergencies. UUPS Upgradeable.
@@ -26,17 +38,23 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
     bytes32 public constant ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
     bytes32 public constant DORMANCY_ORACLE_ROLE = keccak256("DORMANCY_ORACLE_ROLE");
+    bytes32 public constant RELAY_MINTER_ROLE = keccak256("RELAY_MINTER_ROLE");
+    bytes32 public constant SP1_VERIFIER_ROLE = keccak256("SP1_VERIFIER_ROLE");
     
     /// @notice Custom errors for gas efficiency
     error RewardDistributor_UnauthorizedPool();
     error RewardDistributor_UnauthorizedBridge();
+    error RewardDistributor_UnauthorizedRelayer();
     error RewardDistributor_ExceedsMaxSupply();
     error RewardDistributor_InvalidAddress();
     error RewardDistributor_SupplyTooLow();
     error RewardDistributor_OracleStale();
     error RewardDistributor_OracleNotSet();
     error RewardDistributor_ProofAlreadyProcessed();
+    error RewardDistributor_RelayAlreadyProcessed();
     error RewardDistributor_InvalidProofData();
+    error RewardDistributor_SP1VerifierNotSet();
+    error RewardDistributor_SP1ProofVerificationFailed();
 
     ResurgeToken public resurgenceToken;
     uint256 public totalResurgeMinted;
@@ -56,8 +74,18 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     mapping(bytes32 => bool) public processedProofs;
     uint256 public nonEvmRewardAmount;
 
+    // SP1 zkVM dormancy verification (Phase 7)
+    ISP1DormancyVerifier public sp1DormancyVerifier;
+    uint256 public sp1RewardAmount;
+    mapping(bytes32 => bool) public processedSP1Proofs;
+
+    // BaaLS relay bridge path (Phase 13)
+    // Key: keccak256(abi.encodePacked(crossChainSender, nonce)) — unique per spoke sender + nonce
+    mapping(bytes32 => bool) public processedRelays;
+
     event TokensMintedAndDistributed(address indexed to, uint256 amount);
     event TokensMintedForBridge(address indexed user, uint256 amount, address indexed bridge);
+    event TokensMintedForRelay(address indexed user, uint256 amount, address indexed crossChainSender, uint256 nonce);
     event MaxMintSupplyUpdated(uint256 newMaxSupply);
     event StakingPoolAuthorized(address indexed stakingPool);
     event StakingPoolDeauthorized(address indexed stakingPool);
@@ -67,6 +95,15 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     event OracleEnabled(bool enabled);
     event OraclePriceUpdated(uint256 price, uint256 timestamp);
     event NonEvmRewardAmountUpdated(uint256 newAmount);
+    event SP1DormancyProofProcessed(
+        bytes32 indexed proofHash,
+        bytes32 indexed chainId,
+        string indexed address,
+        uint64 dormantSinceBlock,
+        uint64 currentBlock,
+        uint64 thresholdBlocks,
+        uint256 amount
+    );
     event DormancyProofProcessed(
         bytes32 indexed proofHash,
         bytes32 indexed chainId,
@@ -138,6 +175,35 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         resurgenceToken.mint(_to, _amount);
         emit TokensMintedAndDistributed(_to, _amount);
         return true;
+    }
+
+    /// @notice Mints RESURGE for a user whose reward was relayed via BaaLS EVMSubmitter
+    /// @dev Only callable by RELAY_MINTER_ROLE holders (BaaLS EVMSubmitter address).
+    ///      Replay protection: keccak256(crossChainSender, nonce) must not already be processed.
+    ///      The crossChainSender is the spoke-chain contract address that emitted BridgeClaimRequested.
+    ///      Combined with the per-sender nonce, this is globally unique across all spokes.
+    /// @param user Recipient on the hub chain
+    /// @param amount RESURGE amount to mint
+    /// @param crossChainSender Address of the CrossChainSender on the spoke chain that emitted the event
+    /// @param nonce Relay nonce from the BridgeClaimRequested event
+    function mintForRelay(address user, uint256 amount, address crossChainSender, uint256 nonce)
+        external
+        whenNotPaused
+    {
+        if (!hasRole(RELAY_MINTER_ROLE, msg.sender)) revert RewardDistributor_UnauthorizedRelayer();
+        if (user == address(0) || crossChainSender == address(0)) revert RewardDistributor_InvalidAddress();
+
+        bytes32 relayKey = keccak256(abi.encodePacked(crossChainSender, nonce));
+        if (processedRelays[relayKey]) revert RewardDistributor_RelayAlreadyProcessed();
+        processedRelays[relayKey] = true;
+
+        uint256 newTotalMinted = totalResurgeMinted + amount;
+        if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
+        totalResurgeMinted = newTotalMinted;
+
+        resurgenceToken.mint(user, amount);
+        emit TokensMintedForRelay(user, amount, crossChainSender, nonce);
+        emit TokensMintedAndDistributed(user, amount);
     }
 
     /// @notice Authorize a CrossChainReceiver to call mintForBridge
@@ -334,6 +400,86 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         emit TokensMintedAndDistributed(dormantWallet, nonEvmRewardAmount);
     }
 
+    /// @notice Verifies SP1 Groth16 dormancy proof and mints rewards (Phase 7)
+    /// @notice Trustless dormancy verification without requiring DORMANCY_ORACLE_ROLE
+    /// @param zkProof Hex-encoded SP1 Groth16 proof bytes
+    /// @param publicInputs Hex-encoded public inputs/commitments from the proof
+    /// @param chainId The blockchain chain ID (e.g., "bitcoin", "dogecoin")
+    /// @param address The watched address that is claimed dormant
+    /// @param dormantSinceBlock The block height when dormancy window started
+    /// @param currentBlock The current block height
+    /// @param thresholdBlocks The minimum dormancy window required
+    /// @param evmWallet The EVM wallet address that should receive RESURGE rewards
+    /// @return proofHash The keccak256 hash of the proof for tracking
+    function verifyAndMint(
+        bytes calldata zkProof,
+        bytes calldata publicInputs,
+        bytes32 chainId,
+        string calldata address,
+        uint64 dormantSinceBlock,
+        uint64 currentBlock,
+        uint64 thresholdBlocks,
+        address evmWallet
+    ) public onlyRole(SP1_VERIFIER_ROLE) whenNotPaused returns (bytes32 proofHash) {
+        if (address(sp1DormancyVerifier) == address(0)) revert RewardDistributor_SP1VerifierNotSet();
+        if (evmWallet == address(0)) revert RewardDistributor_InvalidAddress();
+        if (sp1RewardAmount == 0) revert RewardDistributor_InvalidProofData();
+
+        // Verify the SP1 proof through the SP1DormancyVerifier contract
+        try sp1DormancyVerifier.verifyDormancyProof(
+            zkProof,
+            publicInputs,
+            chainId,
+            address,
+            dormantSinceBlock,
+            currentBlock,
+            thresholdBlocks
+        ) returns (bytes32 returnedProofHash) {
+            proofHash = returnedProofHash;
+        } catch {
+            revert RewardDistributor_SP1ProofVerificationFailed();
+        }
+
+        // Prevent double-spending of the same proof
+        if (processedSP1Proofs[proofHash]) revert RewardDistributor_ProofAlreadyProcessed();
+        processedSP1Proofs[proofHash] = true;
+
+        // Mint tokens
+        uint256 newTotalMinted = totalResurgeMinted + sp1RewardAmount;
+        if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
+        totalResurgeMinted = newTotalMinted;
+
+        resurgenceToken.mint(evmWallet, sp1RewardAmount);
+
+        // Emit events
+        emit SP1DormancyProofProcessed(
+            proofHash,
+            chainId,
+            address,
+            dormantSinceBlock,
+            currentBlock,
+            thresholdBlocks,
+            sp1RewardAmount
+        );
+
+        emit TokensMintedAndDistributed(evmWallet, sp1RewardAmount);
+
+        return proofHash;
+    }
+
+    /// @notice Sets the SP1DormancyVerifier contract address
+    /// @param _sp1Verifier Address of the SP1DormancyVerifier contract
+    function setSP1DormancyVerifier(address _sp1Verifier) public onlyRole(TIMELOCK_ROLE) {
+        if (_sp1Verifier == address(0)) revert RewardDistributor_InvalidAddress();
+        sp1DormancyVerifier = ISP1DormancyVerifier(_sp1Verifier);
+    }
+
+    /// @notice Sets the reward amount for SP1 verified dormancy proofs
+    /// @param _amount The amount of RESURGE to mint per valid SP1 proof
+    function setSP1RewardAmount(uint256 _amount) public onlyRole(TIMELOCK_ROLE) {
+        sp1RewardAmount = _amount;
+    }
+
     /// @notice Pauses the distributor in case of emergency
     function pause() public onlyRole(EMERGENCY_PAUSER) {
         _pause();
@@ -351,5 +497,5 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     /**
      * @dev Gap for future storage variables.
      */
-    uint256[41] private __gap;
+    uint256[40] private __gap;
 }

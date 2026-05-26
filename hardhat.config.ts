@@ -68,7 +68,7 @@ const config: HardhatUserConfig = {
       gasPrice: "auto"
     },
     amoy: {
-      url: process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology",
+      url: process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology", // publicnode alt: polygon-amoy-bor-rpc.publicnode.com
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 80002,
       gasPrice: "auto"
@@ -80,7 +80,7 @@ const config: HardhatUserConfig = {
       gasPrice: "auto"
     },
     arbitrumSepolia: {
-      url: process.env.ARBITRUM_SEPOLIA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc",
+      url: process.env.ARBITRUM_SEPOLIA_RPC_URL || "https://arbitrum-sepolia-rpc.publicnode.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 421614,
       gasPrice: "auto"
@@ -117,7 +117,7 @@ const config: HardhatUserConfig = {
       gasPrice: "auto"
     },
     baseSepolia: {
-      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+      url: process.env.BASE_SEPOLIA_RPC_URL || "https://base-sepolia-rpc.publicnode.com", // sepolia.base.org does NOT support web3_clientVersion
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 84532,
       gasPrice: "auto"

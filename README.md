@@ -1,5 +1,9 @@
 # Resurgence Protocol
 
+<p align="center">
+  <img src="resurgencelogo.png" alt="Resurgence Protocol Logo" width="360" />
+</p>
+
 **Proof-of-Dormancy staking for abandoned ERC-20 tokens.**
 
 Stake "dead coins" — tokens from failed or abandoned projects — and earn **RESURGE**, the protocol's native governance and rewards token. The protocol is fully on-chain, upgradeable via UUPS proxies, and governed by RESURGE holders through a time-locked DAO.
