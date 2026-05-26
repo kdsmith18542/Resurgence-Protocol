@@ -11,7 +11,10 @@ export default function Home() {
         Stake dead coins, earn RESURGE rewards, governed by the community.
       </p>
       <div className="flex gap-4">
-        <Link href="/dashboard" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors">
+        <Link href="/resurgence" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-6 py-3 rounded-xl font-medium transition-colors">
+          Open Protocol Explorer
+        </Link>
+        <Link href="/dashboard" className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-medium border border-gray-700 transition-colors">
           Enter Dashboard
         </Link>
         <Link href="/pools" className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-medium border border-gray-700 transition-colors">
