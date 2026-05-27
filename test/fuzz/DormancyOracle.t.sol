@@ -23,15 +23,6 @@ contract DormancyOracleTest is Test {
     bytes32 constant CHRONO_PUBKEY = bytes32(uint256(0xdead));
     uint256 constant REWARD_AMOUNT = 1000 ether;
 
-    event DormancyProofProcessed(
-        bytes32 indexed proofHash,
-        bytes32 indexed chainId,
-        address indexed dormantWallet,
-        uint256 dormantSinceBlock,
-        uint256 currentBlock,
-        uint256 amount
-    );
-
     function setUp() public {
         // Deploy ResurgeToken via UUPS proxy
         ResurgeToken tokenImpl = new ResurgeToken();
@@ -92,119 +83,12 @@ contract DormancyOracleTest is Test {
         );
     }
 
-    function testSubmitDormancyProofZeroAddress() public {
+    function testSubmitDormancyProofDeactivated() public {
         vm.prank(oracle);
-        vm.expectRevert(RewardDistributor.RewardDistributor_InvalidAddress.selector);
-        distributor.submitDormancyProof(
-            CHAIN_ID, address(0), DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-    }
-
-    function testSubmitDormancyProofZeroReward() public {
-        vm.startPrank(admin);
-        distributor.setNonEvmRewardAmount(0);
-        vm.stopPrank();
-
-        vm.prank(oracle);
-        vm.expectRevert(RewardDistributor.RewardDistributor_InvalidProofData.selector);
+        vm.expectRevert(RewardDistributor.RewardDistributor_LegacyPathDeactivated.selector);
         distributor.submitDormancyProof(
             CHAIN_ID, dormantWallet, DORMANT_SINCE,
             CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-    }
-
-    function testSubmitDormancyProofSuccess() public {
-        uint256 balanceBefore = token.balanceOf(dormantWallet);
-
-        vm.prank(oracle);
-        bytes32 proofHash = distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, hex"cdcd"
-        );
-
-        assertTrue(proofHash != bytes32(0));
-        assertTrue(distributor.processedProofs(proofHash));
-        assertEq(token.balanceOf(dormantWallet), balanceBefore + REWARD_AMOUNT);
-        assertEq(distributor.totalResurgeMinted(), REWARD_AMOUNT);
-    }
-
-    function testSubmitDormancyProofReplay() public {
-        vm.startPrank(oracle);
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        vm.expectRevert(RewardDistributor.RewardDistributor_ProofAlreadyProcessed.selector);
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-        vm.stopPrank();
-    }
-
-    function testSubmitDormancyProofDifferentBlock() public {
-        vm.startPrank(oracle);
-
-        // Different dormant_since_block → different proof → not a replay
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE + 1,
-            CURRENT_BLOCK + 1, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        // Both succeeded
-        assertEq(distributor.totalResurgeMinted(), REWARD_AMOUNT * 2);
-        vm.stopPrank();
-    }
-
-    function testSubmitDormancyProofPaused() public {
-        vm.prank(emergencyPauser);
-        distributor.pause();
-
-        vm.prank(oracle);
-        vm.expectRevert();
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-    }
-
-    function testSubmitDormancyProofExceedsSupply() public {
-        vm.prank(admin);
-        distributor.setMaxMintSupply(REWARD_AMOUNT - 1);
-
-        vm.prank(oracle);
-        vm.expectRevert(RewardDistributor.RewardDistributor_ExceedsMaxSupply.selector);
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-    }
-
-    function testSubmitDormancyProofEventEmitted() public {
-        bytes32 expectedHash = keccak256(
-            abi.encodePacked(
-                CHAIN_ID, dormantWallet, DORMANT_SINCE,
-                CURRENT_BLOCK, THRESHOLD
-            )
-        );
-
-        vm.expectEmit(true, true, true, true);
-        emit DormancyProofProcessed(
-            expectedHash, CHAIN_ID, dormantWallet,
-            DORMANT_SINCE, CURRENT_BLOCK, REWARD_AMOUNT
-        );
-
-        vm.prank(oracle);
-        distributor.submitDormancyProof(
-            CHAIN_ID, dormantWallet, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, hex"ab"
         );
     }
 }

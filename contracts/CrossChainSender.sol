@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
@@ -11,7 +12,7 @@ import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 /// @notice DeadCoinStakingPool instances call sendRewardClaim() (CCIP path) or
 ///         bridgeClaimRelay() (BaaLS relay path) to bridge accrued debt to the hub.
 /// @dev Non-upgradeable; LINK-funded; one deployment per spoke chain
-contract CrossChainSender is AccessControl {
+contract CrossChainSender is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
@@ -90,6 +91,7 @@ contract CrossChainSender is AccessControl {
     /// @return messageId The CCIP message ID for tracking
     function sendRewardClaim(address user, uint256 amount)
         external
+        nonReentrant
         returns (bytes32 messageId)
     {
         if (!authorizedCallers[msg.sender]) revert CrossChainSender_UnauthorizedCaller();
@@ -151,9 +153,9 @@ contract CrossChainSender is AccessControl {
     /// @param staker The user whose reward should be minted on the hub
     /// @param amount Total RESURGE to mint on the hub
     /// @dev Emits BridgeClaimRequested; BaaLS EVMSubmitter watches this event and calls
-    ///      RewardDistributor.mintForRelay(staker, amount, address(this), nonce) on the hub.
+    ///      RewardDistributor.mintForRelay(staker, amount, sourceChainId, address(this), nonce) on the hub.
     ///      The nonce + sender address form a globally unique replay-protection key on the hub.
-    function bridgeClaimRelay(address staker, uint256 amount) external {
+    function bridgeClaimRelay(address staker, uint256 amount) external nonReentrant {
         if (!authorizedCallers[msg.sender]) revert CrossChainSender_UnauthorizedCaller();
         if (!relayEnabled) revert CrossChainSender_RelayDisabled();
         uint256 nonce = relayNonce++;
@@ -173,7 +175,7 @@ contract CrossChainSender is AccessControl {
     }
 
     /// @notice Withdraw LINK from this contract (governance emergency recovery)
-    function withdrawLink(address to, uint256 amount) external onlyRole(TIMELOCK_ROLE) {
+    function withdrawLink(address to, uint256 amount) external onlyRole(TIMELOCK_ROLE) nonReentrant {
         if (to == address(0)) revert CrossChainSender_InvalidAddress();
         linkToken.safeTransfer(to, amount);
         emit LinkWithdrawn(to, amount);

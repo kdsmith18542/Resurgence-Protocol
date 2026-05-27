@@ -12,6 +12,7 @@ error InsufficientAmount();
 error TokenTransferFailed();
 error BridgeNotAuthorized();
 error WithdrawalAlreadyProcessed();
+error InvalidMessageId();
 
 contract ResurgeBridgeToken is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant BRIDGE_MANAGER_ROLE = keccak256("BRIDGE_MANAGER_ROLE");
@@ -45,15 +46,15 @@ contract ResurgeBridgeToken is AccessControl, ReentrancyGuard, Pausable {
 
         bytes32 transferId = keccak256(abi.encodePacked(block.chainid, msg.sender, amount, dstChainId, block.timestamp, block.number));
 
-        if (!resurgeToken.transferFrom(msg.sender, address(this), amount)) revert TokenTransferFailed();
-
         lockedBalances[msg.sender] += amount;
         totalLocked += amount;
+        if (!resurgeToken.transferFrom(msg.sender, address(this), amount)) revert TokenTransferFailed();
 
         emit TokensLocked(msg.sender, amount, dstChainId, transferId);
 
         bytes memory payload = abi.encode(transferId, amount, recipient);
-        bridge.sendMessage{value: msg.value}(dstChainId, payload, msg.sender);
+        bytes32 messageId = bridge.sendMessage{value: msg.value}(dstChainId, payload, msg.sender);
+        if (uint256(messageId) < 1) revert InvalidMessageId();
     }
 
     function bridgeTokensFrom(uint16 srcChainId, bytes32 transferId, uint256 amount, address recipient) public nonReentrant {
@@ -67,8 +68,8 @@ contract ResurgeBridgeToken is AccessControl, ReentrancyGuard, Pausable {
             totalLocked -= amount;
         }
 
-        if (!resurgeToken.transfer(recipient, amount)) revert TokenTransferFailed();
         totalUnlocked += amount;
+        if (!resurgeToken.transfer(recipient, amount)) revert TokenTransferFailed();
 
         emit TokensBridgedIn(recipient, amount, srcChainId, transferId);
     }
@@ -80,13 +81,13 @@ contract ResurgeBridgeToken is AccessControl, ReentrancyGuard, Pausable {
         bridgeTokensFrom(srcChainId, transferId, amount, recipient);
     }
 
-    function depositReserve(uint256 amount) external onlyRole(BRIDGE_MANAGER_ROLE) {
-        if (!resurgeToken.transferFrom(msg.sender, address(this), amount)) revert TokenTransferFailed();
+    function depositReserve(uint256 amount) external onlyRole(BRIDGE_MANAGER_ROLE) nonReentrant {
         lockedBalances[address(this)] += amount;
         totalLocked += amount;
+        if (!resurgeToken.transferFrom(msg.sender, address(this), amount)) revert TokenTransferFailed();
     }
 
-    function withdrawReserve(uint256 amount) external onlyRole(BRIDGE_MANAGER_ROLE) {
+    function withdrawReserve(uint256 amount) external onlyRole(BRIDGE_MANAGER_ROLE) nonReentrant {
         if (lockedBalances[address(this)] < amount) revert InsufficientBridgeReserve();
         lockedBalances[address(this)] -= amount;
         totalLocked -= amount;

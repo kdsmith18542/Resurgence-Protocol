@@ -2,9 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./ICrossChainBridge.sol";
 
-contract LayerZeroBridge is ICrossChainBridge, Ownable {
+contract LayerZeroBridge is ICrossChainBridge, Ownable, ReentrancyGuard {
     address public immutable override lzEndpoint;
     uint16 public immutable localChainId;
 
@@ -17,13 +18,22 @@ contract LayerZeroBridge is ICrossChainBridge, Ownable {
     event GasLimitUpdated(uint256 newGasLimit);
 
     constructor(address _lzEndpoint, uint16 _localChainId) Ownable(msg.sender) {
+        require(_lzEndpoint != address(0), "Invalid endpoint");
+        require(_localChainId != 0, "Invalid chain ID");
         lzEndpoint = _lzEndpoint;
         localChainId = _localChainId;
     }
 
-    function sendMessage(uint16 dstChainId, bytes calldata payload, address refundAddress) external payable override returns (bytes32 messageId) {
+    function sendMessage(uint16 dstChainId, bytes calldata payload, address refundAddress)
+        external
+        payable
+        override
+        nonReentrant
+        returns (bytes32 messageId)
+    {
         if (dstChainId == 0) revert InvalidChainId();
         if (trustedRemotes[dstChainId].length == 0) revert UnauthorizedRemote();
+        require(refundAddress != address(0), "Invalid refund address");
 
         messageId = keccak256(abi.encodePacked(localChainId, dstChainId, _nonce++, payload));
 
@@ -56,7 +66,7 @@ contract LayerZeroBridge is ICrossChainBridge, Ownable {
         if (msg.sender != lzEndpoint) revert UnauthorizedRemote();
 
         bytes memory expectedAddress = trustedRemotes[srcChainId];
-        if (expectedAddress.length > 0 && keccak256(expectedAddress) != keccak256(srcAddress)) {
+        if (expectedAddress.length == 0 || keccak256(expectedAddress) != keccak256(srcAddress)) {
             revert UnauthorizedRemote();
         }
 
@@ -67,7 +77,7 @@ contract LayerZeroBridge is ICrossChainBridge, Ownable {
         emit MessageReceived(srcChainId, messageId, payload);
     }
 
-    function estimateFees(uint16 dstChainId, bytes calldata payload) external view override returns (uint256) {
+    function estimateFees(uint16 /* dstChainId */, bytes calldata payload) external view override returns (uint256) {
         uint256 baseGas = 21000;
         uint256 payloadGas = payload.length * 16;
         uint256 totalGas = baseGas + payloadGas + minGasLimit;
@@ -88,7 +98,8 @@ contract LayerZeroBridge is ICrossChainBridge, Ownable {
         emit GasLimitUpdated(_minGasLimit);
     }
 
-    function withdrawNative(address to, uint256 amount) external onlyOwner {
+    function withdrawNative(address to, uint256 amount) external onlyOwner nonReentrant {
+        require(to != address(0), "Invalid recipient");
         (bool success, ) = to.call{value: amount}("");
         if (!success) revert MessageDeliveryFailed();
     }

@@ -38,14 +38,14 @@ contract ResurgeToken is
 
     /// @notice Initializes the RESURGE token with all required extensions
     /// @param initialAdmin Address that will be granted admin roles initially
-    /// @param cap Maximum supply of tokens that can ever be minted
-    function initialize(address initialAdmin, uint256 cap) public initializer {
+    /// @param supplyCap Maximum supply of tokens that can ever be minted
+    function initialize(address initialAdmin, uint256 supplyCap) public initializer {
         __ERC20_init("Resurgence Protocol", "RESURGE");
         __ERC20Burnable_init();
         __ERC20Pausable_init();
         __ERC20Permit_init("Resurgence Protocol");
         __ERC20Votes_init();
-        __ERC20Capped_init(cap);
+        __ERC20Capped_init(supplyCap);
         __AccessControl_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);

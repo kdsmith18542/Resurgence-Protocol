@@ -36,7 +36,7 @@ contract SP1DormancyVerifier {
     event DormancyProofVerified(
         bytes32 indexed proofHash,
         bytes32 indexed chainId,
-        string indexed address,
+        string indexed walletAddress,
         uint64 dormantSinceBlock,
         uint64 currentBlock,
         uint64 thresholdBlocks
@@ -47,6 +47,9 @@ contract SP1DormancyVerifier {
     
     /// @notice Emitted when dormancy program ID is updated
     event DormancyProgramIdUpdated(bytes32 indexed newProgramId);
+
+    /// @notice Emitted when contract ownership is transferred
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
     /// @notice Custom errors
     error SP1DormancyVerifier_InvalidProof();
@@ -70,13 +73,14 @@ contract SP1DormancyVerifier {
         sp1Verifier = ISP1Verifier(_sp1Verifier);
         dormancyProgramId = _dormancyProgramId;
         owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
     }
 
     /// @notice Verifies an SP1 Groth16 dormancy proof
     /// @param proof Hex-encoded SP1 Groth16 proof bytes
     /// @param publicInputs Hex-encoded public inputs from the proof (commitments)
     /// @param chainId The blockchain chain ID (e.g., "bitcoin", "dogecoin")
-    /// @param address The watched address that is claimed dormant
+    /// @param walletAddress The watched address that is claimed dormant
     /// @param dormantSinceBlock The block height when dormancy window started
     /// @param currentBlock The current block height
     /// @param thresholdBlocks The minimum dormancy window required
@@ -85,7 +89,7 @@ contract SP1DormancyVerifier {
         bytes calldata proof,
         bytes calldata publicInputs,
         bytes32 chainId,
-        string calldata address,
+        string calldata walletAddress,
         uint64 dormantSinceBlock,
         uint64 currentBlock,
         uint64 thresholdBlocks
@@ -99,7 +103,7 @@ contract SP1DormancyVerifier {
         // Compute proof hash for deduplication
         proofHash = keccak256(abi.encodePacked(
             chainId,
-            address,
+            walletAddress,
             dormantSinceBlock,
             currentBlock,
             thresholdBlocks
@@ -112,7 +116,7 @@ contract SP1DormancyVerifier {
         emit DormancyProofVerified(
             proofHash,
             chainId,
-            address,
+            walletAddress,
             dormantSinceBlock,
             currentBlock,
             thresholdBlocks
@@ -123,21 +127,21 @@ contract SP1DormancyVerifier {
 
     /// @notice Checks if a dormancy proof has already been verified
     /// @param chainId The blockchain chain ID
-    /// @param address The watched address
+    /// @param walletAddress The watched address
     /// @param dormantSinceBlock Block when dormancy started
     /// @param currentBlock Current block height
     /// @param thresholdBlocks Dormancy threshold
     /// @return True if the proof has been verified
     function isProofVerified(
         bytes32 chainId,
-        string calldata address,
+        string calldata walletAddress,
         uint64 dormantSinceBlock,
         uint64 currentBlock,
         uint64 thresholdBlocks
     ) external view returns (bool) {
         bytes32 proofHash = keccak256(abi.encodePacked(
             chainId,
-            address,
+            walletAddress,
             dormantSinceBlock,
             currentBlock,
             thresholdBlocks
@@ -167,6 +171,8 @@ contract SP1DormancyVerifier {
     /// @param newOwner Address of the new owner
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "SP1DormancyVerifier_InvalidOwner");
+        address previousOwner = owner;
         owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
     }
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./utils/ReentrancyGuardUpgradeable.sol";
@@ -131,6 +132,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         public 
         onlyRole(TIMELOCK_ROLE) 
         whenNotPaused 
+        nonReentrant
         returns (address newPoolAddress) 
     {
         if (deadCoinToPoolAddress[_deadCoinAddress] != address(0)) revert StakingPoolManager_PoolExists();
@@ -155,6 +157,7 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         
         deadCoinToPoolAddress[_deadCoinAddress] = poolAddress;
         supportedDeadCoins.push(_deadCoinAddress);
+        emit StakingPoolAdded(_deadCoinAddress, poolAddress, _initialRewardRatePerSecond);
 
         // Authorize the pool in the reward distributor
         RewardDistributor(rewardDistributorAddress).authorizeStakingPool(poolAddress);
@@ -163,8 +166,6 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         if (_initialRewardRatePerSecond > 0) {
             IDeadCoinStakingPool(poolAddress).setRewardRate(_initialRewardRatePerSecond);
         }
-        
-        emit StakingPoolAdded(_deadCoinAddress, poolAddress, _initialRewardRatePerSecond);
         return poolAddress;
     }
 
@@ -175,11 +176,12 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         public 
         onlyRole(TIMELOCK_ROLE) 
         whenNotPaused 
+        nonReentrant
     {
         address poolAddress = deadCoinToPoolAddress[_deadCoinAddress];
         if (poolAddress == address(0)) revert StakingPoolManager_PoolNotFound();
-        IDeadCoinStakingPool(poolAddress).setRewardRate(_newRatePerSecond);
         emit RewardRateUpdated(_deadCoinAddress, _newRatePerSecond);
+        IDeadCoinStakingPool(poolAddress).setRewardRate(_newRatePerSecond);
     }
 
     /// @notice Pauses staking and reward accrual for a specific pool
@@ -188,11 +190,12 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         public 
         onlyRole(TIMELOCK_ROLE) 
         whenNotPaused 
+        nonReentrant
     {
         address poolAddress = deadCoinToPoolAddress[_deadCoinAddress];
         if (poolAddress == address(0)) revert StakingPoolManager_PoolNotFound();
-        IDeadCoinStakingPool(poolAddress).pause();
         emit StakingPoolPaused(_deadCoinAddress, poolAddress);
+        IDeadCoinStakingPool(poolAddress).pause();
     }
 
     /// @notice Unpauses a specific staking pool
@@ -201,11 +204,12 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         public 
         onlyRole(TIMELOCK_ROLE) 
         whenNotPaused 
+        nonReentrant
     {
         address poolAddress = deadCoinToPoolAddress[_deadCoinAddress];
         if (poolAddress == address(0)) revert StakingPoolManager_PoolNotFound();
-        IDeadCoinStakingPool(poolAddress).unpause();
         emit StakingPoolUnpaused(_deadCoinAddress, poolAddress);
+        IDeadCoinStakingPool(poolAddress).unpause();
     }
 
     /// @notice Removes a staking pool from the registry
@@ -215,13 +219,12 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         public 
         onlyRole(TIMELOCK_ROLE) 
         whenNotPaused 
+        nonReentrant
     {
         address poolAddress = deadCoinToPoolAddress[_deadCoinAddress];
         if (poolAddress == address(0)) revert StakingPoolManager_PoolNotFound();
 
-        // Before removing, unauthorize the staking pool from the RewardDistributor
-        RewardDistributor(rewardDistributorAddress).unauthorizeStakingPool(poolAddress);
-
+        // Apply local state updates first; external call occurs after these checks/effects.
         delete deadCoinToPoolAddress[_deadCoinAddress];
 
         // Remove from supportedDeadCoins array
@@ -232,6 +235,8 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
                 break;
             }
         }
+
+        RewardDistributor(rewardDistributorAddress).unauthorizeStakingPool(poolAddress);
         emit StakingPoolRemoved(_deadCoinAddress, poolAddress);
     }
 
@@ -300,17 +305,26 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
     /// @param _poolAddress The address of the staking pool
     /// @return The dynamically calculated reward rate
     function calculateDynamicRate(address _poolAddress) public view returns (uint256) {
-        if (!dynamicRateEnabled) {
-            return DeadCoinStakingPool(_poolAddress).rewardRatePerSecond();
-        }
-
+        uint256 multiplier = RewardDistributor(rewardDistributorAddress).getEmissionMultiplier();
+        uint256 currentRate = DeadCoinStakingPool(_poolAddress).rewardRatePerSecond();
         uint256 tvl = DeadCoinStakingPool(_poolAddress).totalStakedSupply();
-        // Reduction = baseRate * tvlMillions * decayFactor / 10000
-        uint256 tvlMillions = tvl / 1e24; // Divide by 1M * 1e18 = 1e24
-        uint256 reduction = 0;
-        if (tvlMillions > 0) {
-            reduction = (baseRewardRatePerSecond * tvlMillions * tvlDecayFactor) / 10000;
+        return _calculateDynamicRateFromInputs(currentRate, tvl, multiplier);
+    }
+
+    function _calculateDynamicRateFromInputs(
+        uint256 currentRate,
+        uint256 tvl,
+        uint256 multiplier
+    ) internal view returns (uint256) {
+        if (!dynamicRateEnabled) {
+            return currentRate;
         }
+        // Reduction = baseRate * (tvl / 1e24) * decayFactor / 10000, computed with full precision.
+        uint256 reduction = Math.mulDiv(
+            Math.mulDiv(baseRewardRatePerSecond, tvl, 1e24),
+            tvlDecayFactor,
+            10000
+        );
         
         uint256 dynamicRate = baseRewardRatePerSecond;
         if (reduction < dynamicRate) {
@@ -327,32 +341,36 @@ contract StakingPoolManager is Initializable, AccessControlUpgradeable, Pausable
         }
 
         // Apply oracle-based emission multiplier from RewardDistributor
-        uint256 multiplier = RewardDistributor(rewardDistributorAddress).getEmissionMultiplier();
-        dynamicRate = (dynamicRate * multiplier) / 10000;
+        dynamicRate = Math.mulDiv(dynamicRate, multiplier, 10000);
 
         return dynamicRate;
     }
 
     /// @notice Applies dynamic rate recalculation to a pool
     /// @param _deadCoinAddress The dead coin address of the pool
-    function applyDynamicRate(address _deadCoinAddress) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
+    function applyDynamicRate(address _deadCoinAddress) public onlyRole(TIMELOCK_ROLE) whenNotPaused nonReentrant {
         address poolAddress = deadCoinToPoolAddress[_deadCoinAddress];
         if (poolAddress == address(0)) revert StakingPoolManager_PoolNotFound();
-        
-        uint256 dynamicRate = calculateDynamicRate(poolAddress);
-        IDeadCoinStakingPool(poolAddress).setRewardRate(dynamicRate);
+        uint256 multiplier = RewardDistributor(rewardDistributorAddress).getEmissionMultiplier();
+        uint256 currentRate = DeadCoinStakingPool(poolAddress).rewardRatePerSecond();
+        uint256 tvl = DeadCoinStakingPool(poolAddress).totalStakedSupply();
+        uint256 dynamicRate = _calculateDynamicRateFromInputs(currentRate, tvl, multiplier);
         emit RewardRateUpdated(_deadCoinAddress, dynamicRate);
+        IDeadCoinStakingPool(poolAddress).setRewardRate(dynamicRate);
     }
 
     /// @notice Batch applies dynamic rates to all pools
-    function applyDynamicRateAll() public onlyRole(TIMELOCK_ROLE) whenNotPaused {
+    function applyDynamicRateAll() public onlyRole(TIMELOCK_ROLE) whenNotPaused nonReentrant {
         uint256 limit = supportedDeadCoins.length > 50 ? 50 : supportedDeadCoins.length;
+        uint256 multiplier = RewardDistributor(rewardDistributorAddress).getEmissionMultiplier();
         for (uint i = 0; i < limit; i++) {
             address poolAddress = deadCoinToPoolAddress[supportedDeadCoins[i]];
             if (poolAddress != address(0)) {
-                uint256 dynamicRate = calculateDynamicRate(poolAddress);
-                IDeadCoinStakingPool(poolAddress).setRewardRate(dynamicRate);
+                uint256 currentRate = DeadCoinStakingPool(poolAddress).rewardRatePerSecond();
+                uint256 tvl = DeadCoinStakingPool(poolAddress).totalStakedSupply();
+                uint256 dynamicRate = _calculateDynamicRateFromInputs(currentRate, tvl, multiplier);
                 emit RewardRateUpdated(supportedDeadCoins[i], dynamicRate);
+                IDeadCoinStakingPool(poolAddress).setRewardRate(dynamicRate);
             }
         }
     }

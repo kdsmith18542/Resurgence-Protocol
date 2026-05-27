@@ -15,10 +15,15 @@ error AlreadyExecuted();
 error VotesAlreadyRelayed();
 error InvalidProposalState();
 error NoSpokeConfigured();
+error InvalidMessageId();
+error TooManyOperations();
+error TooManySpokes();
 
 contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+    uint256 public constant MAX_OPERATIONS_PER_PROPOSAL = 50;
+    uint256 public constant MAX_SPOKES_PER_RELAY = 50;
 
     ICrossChainBridge public immutable bridge;
     uint16 public immutable localChainId;
@@ -53,6 +58,16 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
     event ProposalExecuted(uint256 indexed proposalId);
     event SpokeRegistered(uint16 indexed chainId);
 
+    function _sendMessageOrRevert(
+        uint16 dstChainId,
+        bytes memory payload,
+        uint256 value,
+        address refundAddress
+    ) internal {
+        bytes32 messageId = bridge.sendMessage{value: value}(dstChainId, payload, refundAddress);
+        if (uint256(messageId) < 1) revert InvalidMessageId();
+    }
+
     constructor(address _bridge, uint16 _localChainId, uint16 _hubChainId, bool _isHub) {
         bridge = ICrossChainBridge(_bridge);
         localChainId = _localChainId;
@@ -78,8 +93,13 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
         bytes[] calldata calldatas,
         string calldata description,
         uint256 votingPeriod
-    ) external payable onlyRole(GOVERNOR_ROLE) {
+    ) external payable onlyRole(GOVERNOR_ROLE) nonReentrant {
         if (!isHub) revert NotHub();
+        if (targets.length == 0 || targets.length != values.length || targets.length != calldatas.length) {
+            revert InvalidProposalState();
+        }
+        if (targets.length > MAX_OPERATIONS_PER_PROPOSAL) revert TooManyOperations();
+
         bytes memory payload = abi.encode(
             hubProposalId,
             targets,
@@ -89,7 +109,7 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
             block.timestamp,
             block.timestamp + votingPeriod
         );
-        bridge.sendMessage{value: msg.value}(dstChainId, payload, msg.sender);
+        _sendMessageOrRevert(dstChainId, payload, msg.value, msg.sender);
     }
 
     function relayProposalToAllSpokes(
@@ -99,9 +119,14 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
         bytes[] calldata calldatas,
         string calldata description,
         uint256 votingPeriod
-    ) external payable onlyRole(GOVERNOR_ROLE) {
+    ) external payable onlyRole(GOVERNOR_ROLE) nonReentrant {
         if (!isHub) revert NotHub();
         if (spokeChainIds.length == 0) revert NoSpokeConfigured();
+        if (spokeChainIds.length > MAX_SPOKES_PER_RELAY) revert TooManySpokes();
+        if (targets.length == 0 || targets.length != values.length || targets.length != calldatas.length) {
+            revert InvalidProposalState();
+        }
+        if (targets.length > MAX_OPERATIONS_PER_PROPOSAL) revert TooManyOperations();
 
         uint256 feePerSpoke = msg.value / spokeChainIds.length;
         for (uint256 i = 0; i < spokeChainIds.length; i++) {
@@ -114,7 +139,7 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
                 block.timestamp,
                 block.timestamp + votingPeriod
             );
-            bridge.sendMessage{value: feePerSpoke}(spokeChainIds[i], payload, msg.sender);
+            _sendMessageOrRevert(spokeChainIds[i], payload, feePerSpoke, msg.sender);
         }
     }
 
@@ -178,7 +203,7 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
         emit VoteCast(proposalId, msg.sender, support, 1);
     }
 
-    function relayVotesToHub(uint256 localProposalId) external payable whenNotPaused {
+    function relayVotesToHub(uint256 localProposalId) external payable whenNotPaused nonReentrant {
         if (isHub) revert NotSpoke();
         CrossChainProposal storage prop = proposals[localProposalId];
         if (prop.votingStart == 0) revert ProposalNotActive();
@@ -194,12 +219,12 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
             prop.againstVotes,
             prop.abstainVotes
         );
-        bridge.sendMessage{value: msg.value}(hubChainId, payload, msg.sender);
+        _sendMessageOrRevert(hubChainId, payload, msg.value, msg.sender);
 
         emit VotesRelayed(prop.hubProposalId, hubChainId, prop.forVotes, prop.againstVotes, prop.abstainVotes);
     }
 
-    function _receiveVotesFromSpoke(uint16 srcChainId, bytes calldata payload) internal {
+    function _receiveVotesFromSpoke(uint16 /* srcChainId */, bytes calldata payload) internal {
         (
             uint256 hubProposalId,
             uint16 spokeChainId,
@@ -216,6 +241,10 @@ contract CrossChainGovernor is AccessControl, Pausable, ReentrancyGuard {
         if (prop.executed) revert AlreadyExecuted();
         if (prop.votingStart == 0) revert ProposalNotActive();
         if (block.timestamp <= prop.votingEnd) revert VotingNotEnded();
+        if (prop.targets.length == 0 || prop.targets.length != prop.values.length || prop.targets.length != prop.calldatas.length) {
+            revert InvalidProposalState();
+        }
+        if (prop.targets.length > MAX_OPERATIONS_PER_PROPOSAL) revert TooManyOperations();
 
         prop.executed = true;
 

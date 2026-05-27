@@ -52,6 +52,7 @@ export default function Header() {
           <Link href="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors">Dashboard</Link>
           <Link href="/pools" className="text-sm text-gray-300 hover:text-white transition-colors">Staking Pools</Link>
           <Link href="/governance" className="text-sm text-gray-300 hover:text-white transition-colors">Governance</Link>
+          <Link href="/non-evm-claims" className="text-sm text-gray-300 hover:text-white transition-colors">Claim Wizard</Link>
           <Link href="/analytics" className="text-sm text-gray-300 hover:text-white transition-colors">Analytics</Link>
           <Link href="/docs" className="text-sm text-gray-300 hover:text-white transition-colors">Docs</Link>
         </nav>
@@ -126,6 +127,7 @@ export default function Header() {
         <Link href="/dashboard" className="text-sm text-gray-400 hover:text-white">Dashboard</Link>
         <Link href="/pools" className="text-sm text-gray-400 hover:text-white">Pools</Link>
         <Link href="/governance" className="text-sm text-gray-400 hover:text-white">Governance</Link>
+        <Link href="/non-evm-claims" className="text-sm text-gray-400 hover:text-white">Claims</Link>
         <Link href="/analytics" className="text-sm text-gray-400 hover:text-white">Analytics</Link>
         <Link href="/docs" className="text-sm text-gray-400 hover:text-white">Docs</Link>
       </nav>

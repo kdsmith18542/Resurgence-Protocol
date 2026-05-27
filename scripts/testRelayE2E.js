@@ -6,7 +6,7 @@
  *   SENDER=<addr> npx hardhat run scripts/testRelayE2E.js --network baseSepolia
  *
  * Step 2 (hub): Simulate BaaLS by calling mintForRelay() directly.
- *   STEP=2 SENDER=<spokeAddr> STAKER=<addr> AMOUNT=<wei> NONCE=<n> \
+ *   STEP=2 SOURCE_CHAIN_ID=<id> SENDER=<spokeAddr> STAKER=<addr> AMOUNT=<wei> NONCE=<n> \
  *     npx hardhat run scripts/testRelayE2E.js --network arbitrumSepolia
  */
 const hre = require("hardhat");
@@ -26,6 +26,7 @@ async function main() {
     if (!senderAddr) throw new Error("Set SENDER env var to CrossChainSender address");
 
     const sender = await hre.ethers.getContractAt("CrossChainSender", senderAddr, signer);
+    const sourceChainId = (await hre.ethers.provider.getNetwork()).chainId;
 
     const staker = process.env.STAKER || signer.address;
     const amount = process.env.AMOUNT ? BigInt(process.env.AMOUNT) : hre.ethers.parseEther("100");
@@ -52,16 +53,17 @@ async function main() {
     log(`   tx:     ${receipt.hash}`);
     log(`\nBaaLS will pick up this event and call mintForRelay on Arbitrum Sepolia.`);
     log(`To simulate BaaLS manually (hub step):`);
-    log(`  STEP=2 SENDER=${senderAddr} STAKER=${ev.args.staker} AMOUNT=${ev.args.amount} NONCE=${ev.args.nonce} \\`);
+    log(`  STEP=2 SOURCE_CHAIN_ID=${sourceChainId} SENDER=${senderAddr} STAKER=${ev.args.staker} AMOUNT=${ev.args.amount} NONCE=${ev.args.nonce} \\`);
     log(`    npx hardhat run scripts/testRelayE2E.js --network arbitrumSepolia`);
 
   } else if (step === 2) {
+    const sourceChainId = process.env.SOURCE_CHAIN_ID ? BigInt(process.env.SOURCE_CHAIN_ID) : null;
     const senderAddr = process.env.SENDER;
     const staker     = process.env.STAKER;
     const amount     = process.env.AMOUNT ? BigInt(process.env.AMOUNT) : null;
     const nonce      = process.env.NONCE  ? BigInt(process.env.NONCE)  : null;
-    if (!senderAddr || !staker || amount === null || nonce === null) {
-      throw new Error("Set SENDER, STAKER, AMOUNT, NONCE env vars");
+    if (sourceChainId === null || !senderAddr || !staker || amount === null || nonce === null) {
+      throw new Error("Set SOURCE_CHAIN_ID, SENDER, STAKER, AMOUNT, NONCE env vars");
     }
 
     const rd = await hre.ethers.getContractAt("RewardDistributor", REWARD_DISTRIBUTOR, signer);
@@ -78,8 +80,8 @@ async function main() {
     const balBefore = await token.balanceOf(staker);
     log(`Staker RESURGE before: ${hre.ethers.formatEther(balBefore)}`);
 
-    log(`Calling mintForRelay(${staker}, ${hre.ethers.formatEther(amount)}, ${senderAddr}, ${nonce})...`);
-    const tx = await rd.mintForRelay(staker, amount, senderAddr, nonce);
+    log(`Calling mintForRelay(${staker}, ${hre.ethers.formatEther(amount)}, ${sourceChainId}, ${senderAddr}, ${nonce})...`);
+    const tx = await rd.mintForRelay(staker, amount, sourceChainId, senderAddr, nonce);
     const receipt = await tx.wait();
     log(`Tx: ${receipt.hash}`);
 

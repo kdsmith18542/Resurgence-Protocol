@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 import {IAny2EVMMessageReceiver} from "@chainlink/contracts-ccip/contracts/interfaces/IAny2EVMMessageReceiver.sol";
 
@@ -13,7 +14,7 @@ interface IRewardDistributorBridge {
 /// @title CrossChainReceiver - CCIP message receiver on the Arbitrum hub
 /// @notice Receives reward-claim messages from spoke chains and triggers RESURGE minting
 /// @dev Non-upgradeable — router address is immutable; redeploy via deployCrossChainReceiver.js
-contract CrossChainReceiver is AccessControl, Pausable {
+contract CrossChainReceiver is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
 
@@ -63,7 +64,7 @@ contract CrossChainReceiver is AccessControl, Pausable {
     }
 
     /// @notice Called by the CCIP router when a cross-chain message arrives
-    function ccipReceive(Client.Any2EVMMessage calldata message) external whenNotPaused {
+    function ccipReceive(Client.Any2EVMMessage calldata message) external whenNotPaused nonReentrant {
         if (msg.sender != ccipRouter) revert CrossChainReceiver_OnlyRouter();
         if (processedMessages[message.messageId])
             revert CrossChainReceiver_MessageAlreadyProcessed();
@@ -78,9 +79,8 @@ contract CrossChainReceiver is AccessControl, Pausable {
         if (amount > maxBridgeMintPerMessage) revert CrossChainReceiver_AmountExceedsCap();
 
         processedMessages[message.messageId] = true;
-        IRewardDistributorBridge(rewardDistributor).mintForBridge(user, amount);
-
         emit RewardBridged(message.messageId, message.sourceChainSelector, user, amount);
+        IRewardDistributorBridge(rewardDistributor).mintForBridge(user, amount);
     }
 
     /// @notice Required so CCIP Router recognises this contract as a valid message receiver.

@@ -8,6 +8,7 @@ describe("BaaLS Relay Bridge Path (Phase 13)", function () {
   const INITIAL_SUPPLY = ethers.parseEther("1000000000");
   const HUB_CHAIN_SEL = 4949039107694359620n;
   const CLAIM_AMOUNT = ethers.parseEther("500");
+  const SPOKE_CHAIN_ID = 80002n;
 
   beforeEach(async function () {
     [owner, timelock, relayer, user, pool, attacker] = await ethers.getSigners();
@@ -121,7 +122,7 @@ describe("BaaLS Relay Bridge Path (Phase 13)", function () {
 
     it("mints RESURGE to user and emits events", async function () {
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n)
       )
         .to.emit(rewardDistributor, "TokensMintedForRelay")
         .withArgs(user.address, CLAIM_AMOUNT, senderAddress, 0n)
@@ -132,55 +133,71 @@ describe("BaaLS Relay Bridge Path (Phase 13)", function () {
     });
 
     it("marks relay key as processed", async function () {
-      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n);
-      const key = ethers.solidityPackedKeccak256(["address", "uint256"], [senderAddress, 0n]);
+      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n);
+      const key = ethers.solidityPackedKeccak256(
+        ["uint256", "address", "uint256"],
+        [SPOKE_CHAIN_ID, senderAddress, 0n]
+      );
       expect(await rewardDistributor.processedRelays(key)).to.be.true;
     });
 
     it("reverts on replay (same sender + nonce)", async function () {
-      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n);
+      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n);
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n)
       ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_RelayAlreadyProcessed");
     });
 
     it("different nonce with same sender succeeds", async function () {
-      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n);
+      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n);
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 1n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 1n)
       ).to.emit(rewardDistributor, "TokensMintedForRelay");
     });
 
-    it("same nonce with different sender succeeds (cross-spoke isolation)", async function () {
+    it("same nonce with different sender succeeds", async function () {
       const otherSender = ethers.Wallet.createRandom().address;
-      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n);
+      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n);
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, otherSender, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, otherSender, 0n)
+      ).to.emit(rewardDistributor, "TokensMintedForRelay");
+    });
+
+    it("same sender + nonce with different source chain succeeds", async function () {
+      await rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, 80002n, senderAddress, 0n);
+      await expect(
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, 84532n, senderAddress, 0n)
       ).to.emit(rewardDistributor, "TokensMintedForRelay");
     });
 
     it("reverts if caller lacks RELAY_MINTER_ROLE", async function () {
       await expect(
-        rewardDistributor.connect(attacker).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n)
+        rewardDistributor.connect(attacker).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n)
       ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_UnauthorizedRelayer");
     });
 
     it("reverts if user is zero address", async function () {
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(ethers.ZeroAddress, CLAIM_AMOUNT, senderAddress, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(ethers.ZeroAddress, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n)
       ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_InvalidAddress");
     });
 
     it("reverts if crossChainSender is zero address", async function () {
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, ethers.ZeroAddress, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, ethers.ZeroAddress, 0n)
       ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_InvalidAddress");
+    });
+
+    it("reverts if source chain ID is zero", async function () {
+      await expect(
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, 0n, senderAddress, 0n)
+      ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_InvalidSourceChain");
     });
 
     it("reverts if amount exceeds max supply", async function () {
       const maxSupply = await rewardDistributor.maxMintSupply();
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, maxSupply + 1n, senderAddress, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, maxSupply + 1n, SPOKE_CHAIN_ID, senderAddress, 0n)
       ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_ExceedsMaxSupply");
     });
 
@@ -189,7 +206,7 @@ describe("BaaLS Relay Bridge Path (Phase 13)", function () {
       await rewardDistributor.connect(timelock).grantRole(EMERGENCY_PAUSER, owner.address);
       await rewardDistributor.pause();
       await expect(
-        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, senderAddress, 0n)
+        rewardDistributor.connect(relayer).mintForRelay(user.address, CLAIM_AMOUNT, SPOKE_CHAIN_ID, senderAddress, 0n)
       ).to.be.revertedWithCustomError(rewardDistributor, "EnforcedPause");
     });
   });
@@ -208,7 +225,7 @@ describe("BaaLS Relay Bridge Path (Phase 13)", function () {
 
       // Step 2: BaaLS EVMSubmitter calls mintForRelay on hub
       await rewardDistributor.connect(relayer).mintForRelay(
-        staker, amount, await crossChainSender.getAddress(), nonce
+        staker, amount, SPOKE_CHAIN_ID, await crossChainSender.getAddress(), nonce
       );
 
       // Verify RESURGE minted
@@ -217,7 +234,7 @@ describe("BaaLS Relay Bridge Path (Phase 13)", function () {
       // Verify replay blocked
       await expect(
         rewardDistributor.connect(relayer).mintForRelay(
-          staker, amount, await crossChainSender.getAddress(), nonce
+          staker, amount, SPOKE_CHAIN_ID, await crossChainSender.getAddress(), nonce
         )
       ).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_RelayAlreadyProcessed");
     });

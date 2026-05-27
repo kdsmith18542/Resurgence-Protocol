@@ -13,12 +13,14 @@ contract MockCrossChainBridge is ICrossChainBridge, AccessControl {
 
     uint16 public immutable localChainId;
     address public immutable override lzEndpoint;
+    address public immutable admin;
 
     receive() external payable {}
 
     constructor(uint16 _localChainId) {
         localChainId = _localChainId;
         lzEndpoint = address(this);
+        admin = msg.sender;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
     }
@@ -31,6 +33,7 @@ contract MockCrossChainBridge is ICrossChainBridge, AccessControl {
     }
 
     function deliverMessage(address target, uint16 srcChainId, bytes32 messageId, bytes calldata payload) external {
+        require(target != address(0), "Invalid target");
         if (processedMessages[messageId]) revert MessageAlreadyProcessed();
         processedMessages[messageId] = true;
         emit MessageReceived(srcChainId, messageId, payload);
@@ -49,5 +52,10 @@ contract MockCrossChainBridge is ICrossChainBridge, AccessControl {
 
     function getTrustedRemote(uint16 chainId) external view override returns (bytes memory) {
         return trustedRemotes[chainId];
+    }
+
+    function withdrawNative(uint256 amount) external onlyRole(ADMIN_ROLE) {
+        (bool success, ) = payable(admin).call{value: amount}("");
+        if (!success) revert MessageDeliveryFailed();
     }
 }

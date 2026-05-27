@@ -19,6 +19,7 @@ type User @entity {
   votes: [VoteReceipt!] @derivedFrom(field: "voter")
   bridgeClaimEvents: [BridgeClaimEvent!] @derivedFrom(field: "user")
   nonEvmWallets: [NonEvmWallet!] @derivedFrom(field: "staker")
+  legacyClaims: [LegacyClaim!] @derivedFrom(field: "evmWallet")
 }
 
 type NonEvmWallet @entity {
@@ -141,5 +142,107 @@ type ProtocolMetrics @entity {
   totalPools: BigInt!
   totalStakers: BigInt!
   totalProposals: BigInt!
+  updatedAt: BigInt!
+}
+
+type LegacyClaim @entity {
+  id: Bytes! # the claimId
+  sourceChainId: Bytes!
+  sourceAddressHash: Bytes!
+  evmWallet: User!
+  proofHash: Bytes!
+  sourceTxHash: Bytes!
+  claimType: Int!
+  confidenceTier: Int!
+  lastSeenTimestamp: BigInt!
+  dormancySeconds: BigInt!
+  rewardAmount: BigInt!
+  campaignId: BigInt!
+  status: String! # "Pending", "Verified", "Minted", "Rejected", "Quarantined", "Expired"
+  quarantineReason: String
+  submittedAt: BigInt!
+  submittedAtBlock: BigInt!
+  submittedAtTx: Bytes!
+  quarantineEvents: [LaceQuarantineEvent!]! @derivedFrom(field: "claim")
+}
+
+type LaceQuarantineEvent @entity {
+  id: Bytes! # txHash + claimId
+  claim: LegacyClaim!
+  eventType: String! # "Quarantined", "Released", "Rejected"
+  reason: String
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type LaceCampaign @entity {
+  id: ID! # campaignId
+  active: Boolean!
+  startTime: BigInt!
+  endTime: BigInt!
+  maxTotalRewards: BigInt!
+  rewardsMinted: BigInt!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+  updatedAtTx: Bytes!
+}
+
+type LacePolicy @entity {
+  id: Bytes! # sourceChainId (or 0x0000... for default policy)
+  enabled: Boolean!
+  transferToVaultEnabled: Boolean!
+  burnProofEnabled: Boolean!
+  lockProofEnabled: Boolean!
+  signatureProofEnabled: Boolean!
+  rpcEvidenceEnabled: Boolean!
+  explorerEvidenceEnabled: Boolean!
+  zkProofEnabled: Boolean!
+  minDormancySeconds: BigInt!
+  minHistoricalBalance: BigInt!
+  maxRewardPerClaim: BigInt!
+  maxRewardPerEpoch: BigInt!
+  minConfidenceTier: Int!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+  updatedAtTx: Bytes!
+}
+
+type LaceVault @entity {
+  id: Bytes! # sourceChainId
+  vaultAddress: String!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+  updatedAtTx: Bytes!
+}
+
+type LaceBurnAddress @entity {
+  id: Bytes! # sourceChainId
+  burnAddress: String!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+  updatedAtTx: Bytes!
+}
+
+type TransferClaim @entity {
+  id: Bytes! # txHash
+  chainId: Bytes!
+  sourceAddress: String!
+  destinationAddress: String!
+  txHash: Bytes!
+  amount: BigInt!
+  blockHeight: BigInt!
+  transferType: String! # "vault" or "burn"
+  detectedAt: BigInt!
+  claimSubmitted: Boolean!
+  evmWallet: User
+  linkedLegacyClaim: LegacyClaim
+  createdAt: BigInt!
+}
+
+type ConfidenceMultiplier @entity {
+  id: ID! # claimType as string
+  claimType: String!
+  multiplier: Int! # basis points (100 = 1.00x)
   updatedAt: BigInt!
 }

@@ -7,6 +7,7 @@ export const CONTRACTS: Record<number, {
   CrossChainSender: string;
   CrossChainReceiver: string;
   NonEvmStakingPool: string;
+  LegacyClaimRegistry?: string;
 }> = {
   137: {
     ResurgeToken: process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS || '',
@@ -17,6 +18,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_POLYGON_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: process.env.NEXT_PUBLIC_LEGACY_CLAIM_REGISTRY_ADDRESS || '',
   },
   80002: {
     ResurgeToken: process.env.NEXT_PUBLIC_AMOY_RESURGE_TOKEN_ADDRESS || process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS || '',
@@ -27,6 +29,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_AMOY_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: process.env.NEXT_PUBLIC_LEGACY_CLAIM_REGISTRY_ADDRESS || '',
   },
   31337: {
     ResurgeToken: process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
@@ -37,6 +40,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: process.env.NEXT_PUBLIC_LEGACY_CLAIM_REGISTRY_ADDRESS || '0x9012aD48e83a2537f017b0CbeA5A990CCEA9cE87',
   },
   42161: {
     ResurgeToken: process.env.NEXT_PUBLIC_ARBITRUM_RESURGE_TOKEN_ADDRESS || process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS || '',
@@ -47,6 +51,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: '',
     CrossChainReceiver: process.env.NEXT_PUBLIC_ARBITRUM_CROSS_CHAIN_RECEIVER_ADDRESS || '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: process.env.NEXT_PUBLIC_LEGACY_CLAIM_REGISTRY_ADDRESS || '',
   },
   421614: {
     ResurgeToken: process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RESURGE_TOKEN_ADDRESS || process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS || '',
@@ -57,6 +62,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: '',
     CrossChainReceiver: process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_CROSS_CHAIN_RECEIVER_ADDRESS || '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: process.env.NEXT_PUBLIC_LEGACY_CLAIM_REGISTRY_ADDRESS || '',
   },
   10: {
     ResurgeToken: process.env.NEXT_PUBLIC_OPTIMISM_RESURGE_TOKEN_ADDRESS || process.env.NEXT_PUBLIC_RESURGE_TOKEN_ADDRESS || '',
@@ -67,6 +73,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_OPTIMISM_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: process.env.NEXT_PUBLIC_LEGACY_CLAIM_REGISTRY_ADDRESS || '',
   },
   // Tier 1 spoke chains (StakingPoolManager + CrossChainSender; hub contracts empty)
   56: {
@@ -78,6 +85,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_BSC_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
   97: {
     ResurgeToken: '',
@@ -88,6 +96,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_BSC_TESTNET_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
   8453: {
     ResurgeToken: '',
@@ -98,6 +107,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_BASE_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
   84532: {
     ResurgeToken: '',
@@ -119,6 +129,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_ETHEREUM_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
   11155111: {
     ResurgeToken: '',
@@ -129,6 +140,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_SEPOLIA_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
   43114: {
     ResurgeToken: '',
@@ -139,6 +151,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_AVALANCHE_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
   43113: {
     ResurgeToken: '',
@@ -149,6 +162,7 @@ export const CONTRACTS: Record<number, {
     CrossChainSender: process.env.NEXT_PUBLIC_AVALANCHE_FUJI_CROSS_CHAIN_SENDER_ADDRESS || '',
     CrossChainReceiver: '',
     NonEvmStakingPool: process.env.NEXT_PUBLIC_NON_EVM_POOL_ADDRESS || '',
+    LegacyClaimRegistry: '',
   },
 };
 

@@ -1,0 +1,1744 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "AccessControlBadConfirmation",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "neededRole",
+        "type": "bytes32"
+      }
+    ],
+    "name": "AccessControlUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "target",
+        "type": "address"
+      }
+    ],
+    "name": "AddressEmptyCode",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "ERC1967InvalidImplementation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ERC1967NonPayable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EnforcedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ExpectedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidInitialization",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "campaignId",
+        "type": "uint256"
+      }
+    ],
+    "name": "LegacyClaimRegistry_CampaignExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "campaignId",
+        "type": "uint256"
+      }
+    ],
+    "name": "LegacyClaimRegistry_CampaignInactive",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LegacyClaimRegistry_ClaimAlreadyConsumed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LegacyClaimRegistry_ClaimNotPending",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LegacyClaimRegistry_ClaimQuarantined",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LegacyClaimRegistry_ClaimStatusInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LegacyClaimRegistry_InvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LegacyClaimRegistry_PolicyValidationFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "proofHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LegacyClaimRegistry_ProofAlreadyConsumed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LegacyClaimRegistry_RewardControllerNotSet",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LegacyClaimRegistry_UnauthorizedOracle",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotInitializing",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UUPSUnauthorizedCallContext",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "slot",
+        "type": "bytes32"
+      }
+    ],
+    "name": "UUPSUnsupportedProxiableUUID",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "burnAddress",
+        "type": "string"
+      }
+    ],
+    "name": "BurnAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "campaignId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      }
+    ],
+    "name": "CampaignUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ClaimGrandfathered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ClaimMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "ClaimQuarantined",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ClaimRejected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ClaimReleased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "DefaultPolicyUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "version",
+        "type": "uint64"
+      }
+    ],
+    "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "evmWallet",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum LegacyClaimRegistry.LegacyClaimType",
+        "name": "claimType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "rewardAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "LegacyClaimSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "enabled",
+        "type": "bool"
+      }
+    ],
+    "name": "PolicyUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "proofHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ProofGrandfathered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "controller",
+        "type": "address"
+      }
+    ],
+    "name": "RewardControllerUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "previousAdminRole",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "newAdminRole",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RoleAdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleGranted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Unpaused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "Upgraded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "vaultAddress",
+        "type": "string"
+      }
+    ],
+    "name": "VaultAddressUpdated",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "DEFAULT_ADMIN_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "DORMANCY_ORACLE_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "RISK_MANAGER_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TIMELOCK_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "UPGRADE_INTERFACE_VERSION",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "burnAddresses",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "campaigns",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "startTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "endTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxTotalRewards",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rewardsMinted",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "claimPolicies",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "enabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "transferToVaultEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "burnProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "lockProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "signatureProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "rpcEvidenceEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "explorerEvidenceEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "zkProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minDormancySeconds",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minHistoricalBalance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxRewardPerClaim",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxRewardPerEpoch",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "minConfidenceTier",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "claimStatus",
+    "outputs": [
+      {
+        "internalType": "enum LegacyClaimRegistry.ClaimStatus",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "claims",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "sourceAddressHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "evmWallet",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "proofHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "sourceTxHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "enum LegacyClaimRegistry.LegacyClaimType",
+        "name": "claimType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "confidenceTier",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "lastSeenTimestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "dormancySeconds",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rewardAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "campaignId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "consumedClaims",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "consumedProofs",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "defaultPolicy",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "enabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "transferToVaultEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "burnProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "lockProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "signatureProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "rpcEvidenceEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "explorerEvidenceEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "zkProofEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minDormancySeconds",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minHistoricalBalance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxRewardPerClaim",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxRewardPerEpoch",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "minConfidenceTier",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "sourceChainId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "sourceAddressHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "evmWallet",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "proofHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "sourceTxHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "enum LegacyClaimRegistry.LegacyClaimType",
+            "name": "claimType",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "confidenceTier",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastSeenTimestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dormancySeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rewardAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "campaignId",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct LegacyClaimRegistry.LegacyClaim",
+        "name": "claim",
+        "type": "tuple"
+      }
+    ],
+    "name": "getClaimId",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getRoleAdmin",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "claimIds",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "grandfatherClaims",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "proofHashes",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "grandfatherProofs",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "grantRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "hasRole",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_timelock",
+        "type": "address"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "markClaimQuarantined",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "proxiableUUID",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "rejectClaim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "claimId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "releaseClaim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "callerConfirmation",
+        "type": "address"
+      }
+    ],
+    "name": "renounceRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "revokeRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "rewardController",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "burnAddress",
+        "type": "string"
+      }
+    ],
+    "name": "setBurnAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "id",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "startTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "endTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxTotalRewards",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rewardsMinted",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct LegacyClaimRegistry.Campaign",
+        "name": "campaign",
+        "type": "tuple"
+      }
+    ],
+    "name": "setCampaign",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "transferToVaultEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "burnProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "lockProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "signatureProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "rpcEvidenceEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "explorerEvidenceEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "zkProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "minDormancySeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "minHistoricalBalance",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxRewardPerClaim",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxRewardPerEpoch",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint8",
+            "name": "minConfidenceTier",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct LegacyClaimRegistry.ClaimPolicy",
+        "name": "policy",
+        "type": "tuple"
+      }
+    ],
+    "name": "setClaimPolicy",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "transferToVaultEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "burnProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "lockProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "signatureProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "rpcEvidenceEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "explorerEvidenceEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "zkProofEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "minDormancySeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "minHistoricalBalance",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxRewardPerClaim",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxRewardPerEpoch",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint8",
+            "name": "minConfidenceTier",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct LegacyClaimRegistry.ClaimPolicy",
+        "name": "policy",
+        "type": "tuple"
+      }
+    ],
+    "name": "setDefaultPolicy",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "controller",
+        "type": "address"
+      }
+    ],
+    "name": "setRewardController",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "vaultAddress",
+        "type": "string"
+      }
+    ],
+    "name": "setVaultAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "sourceChainId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "sourceAddressHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "evmWallet",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "proofHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "sourceTxHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "enum LegacyClaimRegistry.LegacyClaimType",
+            "name": "claimType",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "confidenceTier",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastSeenTimestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dormancySeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rewardAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "campaignId",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct LegacyClaimRegistry.LegacyClaim",
+        "name": "claim",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "name": "submitLegacyClaim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "groth16Proof",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "publicInputs",
+        "type": "bytes"
+      },
+      {
+        "internalType": "string",
+        "name": "walletAddress",
+        "type": "string"
+      },
+      {
+        "internalType": "uint64",
+        "name": "dormantSinceBlock",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "currentBlock",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "thresholdBlocks",
+        "type": "uint64"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "sourceChainId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "sourceAddressHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "evmWallet",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "proofHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "sourceTxHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "enum LegacyClaimRegistry.LegacyClaimType",
+            "name": "claimType",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "confidenceTier",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastSeenTimestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dormancySeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rewardAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "campaignId",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct LegacyClaimRegistry.LegacyClaim",
+        "name": "claim",
+        "type": "tuple"
+      }
+    ],
+    "name": "submitZkDormancyClaim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
+      }
+    ],
+    "name": "supportsInterface",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "vaultAddresses",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

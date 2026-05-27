@@ -28,6 +28,8 @@ contract ResurgenceGovernance is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
+    error ResurgenceGovernance_InvalidAddress();
+
     /// @dev Track the latest proposal ID
     uint256 private _latestProposalId;
 
@@ -35,33 +37,40 @@ contract ResurgenceGovernance is
     address public immutable stakingPool;
 
     /// @notice Initializes the governance contract
-    /// @param _resurgeToken The native RESURGE token address (IVotes compatible)
-    /// @param _timelock The TimelockController address
-    /// @param _stakingPool ResurgeStakingPool address for staked vote aggregation (address(0) to skip)
-    /// @param _votingDelay Number of blocks between proposal and voting start
-    /// @param _votingPeriod Duration of the voting period in blocks
-    /// @param _quorumPercentage Percentage of total supply needed for quorum (e.g. 4)
-    /// @param _proposalThreshold Number of votes needed to create a proposal
+    /// @param resurgeToken_ The native RESURGE token address (IVotes compatible)
+    /// @param timelockController_ The TimelockController address
+    /// @param stakingPool_ ResurgeStakingPool address for staked vote aggregation
+    /// @param votingDelayBlocks_ Number of blocks between proposal and voting start
+    /// @param votingPeriodBlocks_ Duration of the voting period in blocks
+    /// @param quorumPercentage_ Percentage of total supply needed for quorum (e.g. 4)
+    /// @param proposalThreshold_ Number of votes needed to create a proposal
     constructor(
-        ResurgeToken _resurgeToken,
-        ResurgenceTimelockController _timelock,
-        address _stakingPool,
-        uint256 _votingDelay,
-        uint256 _votingPeriod,
-        uint256 _quorumPercentage,
-        uint256 _proposalThreshold
+        ResurgeToken resurgeToken_,
+        ResurgenceTimelockController timelockController_,
+        address stakingPool_,
+        uint256 votingDelayBlocks_,
+        uint256 votingPeriodBlocks_,
+        uint256 quorumPercentage_,
+        uint256 proposalThreshold_
     )
         Governor("ResurgenceGovernor")
         GovernorSettings(
-            uint48(_votingDelay),
-            uint32(_votingPeriod),
-            _proposalThreshold
+            uint48(votingDelayBlocks_),
+            uint32(votingPeriodBlocks_),
+            proposalThreshold_
         )
-        GovernorVotes(IVotes(address(_resurgeToken)))
-        GovernorVotesQuorumFraction(_quorumPercentage)
-        GovernorTimelockControl(_timelock)
+        GovernorVotes(IVotes(address(resurgeToken_)))
+        GovernorVotesQuorumFraction(quorumPercentage_)
+        GovernorTimelockControl(timelockController_)
     {
-        stakingPool = _stakingPool;
+        if (address(resurgeToken_) == address(0) || address(timelockController_) == address(0)) {
+            revert ResurgenceGovernance_InvalidAddress();
+        }
+        if (stakingPool_ == address(0)) {
+            stakingPool = address(0);
+        } else {
+            stakingPool = stakingPool_;
+        }
     }
 
     // The following functions are overrides required by Solidity

@@ -198,6 +198,48 @@ dataSources:
         - event: WalletUnregistered(indexed bytes32,indexed bytes32,string,indexed address)
           handler: handleWalletUnregistered
       file: ./src/mappings/nonEvmStaking.ts
+  - kind: ethereum
+    name: LegacyClaimRegistry
+    network: arbitrum-sepolia
+    source:
+      abi: LegacyClaimRegistry
+      address: "0x0000000000000000000000000000000000000000"
+      startBlock: 270500000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyClaim
+        - LaceQuarantineEvent
+        - LaceCampaign
+        - LacePolicy
+        - User
+        - LaceVault
+        - LaceBurnAddress
+      abis:
+        - name: LegacyClaimRegistry
+          file: ./abi/LegacyClaimRegistry.json
+      eventHandlers:
+        - event: LegacyClaimSubmitted(indexed bytes32,indexed bytes32,indexed address,uint8,uint256)
+          handler: handleLegacyClaimSubmitted
+        - event: ClaimQuarantined(indexed bytes32,string)
+          handler: handleClaimQuarantined
+        - event: ClaimReleased(indexed bytes32)
+          handler: handleClaimReleased
+        - event: ClaimRejected(indexed bytes32)
+          handler: handleClaimRejected
+        - event: ClaimMinted(indexed bytes32,indexed address,uint256)
+          handler: handleClaimMinted
+        - event: CampaignUpdated(indexed uint256,bool)
+          handler: handleCampaignUpdated
+        - event: PolicyUpdated(indexed bytes32,bool)
+          handler: handlePolicyUpdated
+        - event: VaultAddressUpdated(indexed bytes32,string)
+          handler: handleVaultAddressUpdated
+        - event: BurnAddressUpdated(indexed bytes32,string)
+          handler: handleBurnAddressUpdated
+      file: ./src/mappings/legacyClaimRegistry.ts
 
 templates:
   - kind: ethereum

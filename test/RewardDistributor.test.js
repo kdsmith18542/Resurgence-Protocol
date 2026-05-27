@@ -150,4 +150,37 @@ describe("RewardDistributor (Upgradeable)", function () {
       expect(await rewardDistributor.maxMintSupply()).to.equal(INITIAL_MAX_MINT);
     });
   });
+
+  describe("Legacy Entry Points Deactivation", function () {
+    it("Should revert when calling submitDormancyProof even if authorized", async function () {
+      const DORMANCY_ORACLE_ROLE = await rewardDistributor.DORMANCY_ORACLE_ROLE();
+      await rewardDistributor.connect(timelock).grantRole(DORMANCY_ORACLE_ROLE, addr1.address);
+
+      await expect(rewardDistributor.connect(addr1).submitDormancyProof(
+        ethers.ZeroHash,
+        ethers.ZeroAddress,
+        0,
+        0,
+        0,
+        ethers.ZeroHash,
+        "0x"
+      )).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_LegacyPathDeactivated");
+    });
+
+    it("Should revert when calling verifyAndMint without verifier set", async function () {
+      const SP1_VERIFIER_ROLE = await rewardDistributor.SP1_VERIFIER_ROLE();
+      await rewardDistributor.connect(timelock).grantRole(SP1_VERIFIER_ROLE, addr1.address);
+
+      await expect(rewardDistributor.connect(addr1).verifyAndMint(
+        "0x",
+        "0x",
+        ethers.ZeroHash,
+        "",
+        0,
+        0,
+        0,
+        ethers.ZeroAddress
+      )).to.be.revertedWithCustomError(rewardDistributor, "RewardDistributor_SP1VerifierNotSet");
+    });
+  });
 });

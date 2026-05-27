@@ -169,6 +169,17 @@ contract DeadCoinStakingPool is
         
         emit Staked(_staker, _amount);
     }
+
+    /// @dev Local reward minting is only possible when this pool is recognized by a real hub distributor.
+    ///      Spoke deployments use stub distributors, so fee minting must be skipped there.
+    function _canMintLocalRewards() internal view returns (bool) {
+        if (rewardDistributor == address(0) || rewardDistributor.code.length == 0) return false;
+        try IRewardDistributor(rewardDistributor).authorizedStakingPools(address(this)) returns (bool authorized) {
+            return authorized;
+        } catch {
+            return false;
+        }
+    }
     
     /// @notice Unstakes dead coins from the pool
     /// @param _amount Amount of dead coins to unstake
@@ -253,7 +264,7 @@ contract DeadCoinStakingPool is
             revert InvalidAmount();
 
         uint256 rewards = userRewards[msg.sender];
-        if (rewards == 0) revert InvalidAmount();
+        if (rewards < 1) revert InvalidAmount();
 
         userRewards[msg.sender] = 0;
 
@@ -290,13 +301,13 @@ contract DeadCoinStakingPool is
         if (crossChainSender == address(0)) revert BridgeNotConfigured();
 
         uint256 rewards = userRewards[msg.sender];
-        if (rewards == 0) revert InvalidAmount();
+        if (rewards < 1) revert InvalidAmount();
 
         userRewards[msg.sender] = 0;
 
         uint256 fee = 0;
         uint256 bridgeAmount = rewards;
-        if (protocolFeeBps > 0 && treasury != address(0)) {
+        if (protocolFeeBps > 0 && treasury != address(0) && _canMintLocalRewards()) {
             fee = (rewards * protocolFeeBps) / 10000;
             bridgeAmount = rewards - fee;
         }
@@ -314,19 +325,20 @@ contract DeadCoinStakingPool is
 
     /// @notice Claims accrued rewards via the BaaLS relay path (no LINK required).
     ///         Emits BridgeClaimRequested on the CrossChainSender; BaaLS EVMSubmitter
-    ///         watches that event and calls RewardDistributor.mintForRelay() on the hub.
+    ///         watches that event and calls RewardDistributor.mintForRelay() on the hub
+    ///         with the spoke chain's EVM chain ID.
     function bridgeClaimRelay() external whenNotPaused updateReward(msg.sender) nonReentrant {
         if (crossChainSender == address(0)) revert BridgeNotConfigured();
 
         uint256 rewards = userRewards[msg.sender];
-        if (rewards == 0) revert InvalidAmount();
+        if (rewards < 1) revert InvalidAmount();
 
         userRewards[msg.sender] = 0;
 
         uint256 bridgeAmount = rewards;
-        // Protocol fee is minted locally only if rewardDistributor is real (hub pools).
-        // Spoke pools set rewardDistributor to a stub — skip fee to avoid reverts.
-        if (protocolFeeBps > 0 && treasury != address(0) && rewardDistributor != address(0)) {
+        // Protocol fee is minted locally only when this pool is authorized in a real distributor.
+        // Spoke pools use stub distributors, so local minting is skipped to avoid claim reverts.
+        if (protocolFeeBps > 0 && treasury != address(0) && _canMintLocalRewards()) {
             uint256 fee = (rewards * protocolFeeBps) / 10000;
             bridgeAmount = rewards - fee;
             bool feeOk = IRewardDistributor(rewardDistributor).mintAndDistribute(treasury, fee);
@@ -339,10 +351,21 @@ contract DeadCoinStakingPool is
     }
 
     /// @notice Sets the CrossChainSender address for spoke-chain bridge claims
-    /// @param _sender Address of the CrossChainSender on this spoke chain (address(0) to disable)
+    /// @param _sender Address of the CrossChainSender on this spoke chain
     function setCrossChainSender(address _sender) external onlyRole(TIMELOCK_ROLE) {
+        if (_sender == address(0)) {
+            crossChainSender = address(0);
+            emit CrossChainSenderUpdated(address(0));
+            return;
+        }
         crossChainSender = _sender;
         emit CrossChainSenderUpdated(_sender);
+    }
+
+    /// @notice Disables spoke-chain bridge claims for this pool
+    function disableCrossChainSender() external onlyRole(TIMELOCK_ROLE) {
+        crossChainSender = address(0);
+        emit CrossChainSenderUpdated(address(0));
     }
 
     /// @notice Sets the reward rate per second

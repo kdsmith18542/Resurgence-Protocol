@@ -17,6 +17,7 @@ error ResurgeStaking_TransferFailed();
 error ResurgeStaking_RewardMintingFailed();
 error ResurgeStaking_LockPeriodActive();
 error ResurgeStaking_NotAuthorized();
+error ResurgeStaking_CheckpointWriteFailed();
 
 interface IVotes {
     function delegate(address delegatee) external;
@@ -98,6 +99,7 @@ contract ResurgeStakingPool is
         resurgeToken = ResurgeToken(_resurgeToken);
         rewardDistributor = _rewardDistributor;
         rewardRatePerSecond = _initialRewardRate;
+        emit RewardRateUpdated(_initialRewardRate);
         lastUpdateTime = block.timestamp;
         minStakeDuration = 7 days;
         earlyUnstakePenaltyBps = 500; // 5%
@@ -162,9 +164,6 @@ contract ResurgeStakingPool is
     function _stakeInternal(address _user, uint256 _amount, address _delegatee) internal {
         if (_amount == 0) revert ResurgeStaking_InvalidAmount();
 
-        if (!resurgeToken.transferFrom(msg.sender, address(this), _amount))
-            revert ResurgeStaking_TransferFailed();
-
         bool isFresh = userStakedAmount[_user] == 0;
         userStakedAmount[_user] += _amount;
         totalStakedSupply += _amount;
@@ -181,17 +180,17 @@ contract ResurgeStakingPool is
 
         if (prevDelegatee != finalDelegatee) {
             // Changing delegation: move existing vote weight to the new delegatee first.
-            uint208 existingWeight = uint208(userStakedAmount[_user] - _amount);
-            if (existingWeight > 0) {
-                _stakedVoteCheckpoints[prevDelegatee].push(
-                    uint48(block.number),
-                    _stakedVoteCheckpoints[prevDelegatee].latest() - existingWeight
-                );
-                _stakedVoteCheckpoints[finalDelegatee].push(
-                    uint48(block.number),
-                    _stakedVoteCheckpoints[finalDelegatee].latest() + existingWeight
-                );
-            }
+                uint208 existingWeight = uint208(userStakedAmount[_user] - _amount);
+                if (existingWeight > 0) {
+                    _pushTraceCheckpoint(
+                        _stakedVoteCheckpoints[prevDelegatee],
+                        _stakedVoteCheckpoints[prevDelegatee].latest() - existingWeight
+                    );
+                    _pushTraceCheckpoint(
+                        _stakedVoteCheckpoints[finalDelegatee],
+                        _stakedVoteCheckpoints[finalDelegatee].latest() + existingWeight
+                    );
+                }
             userDelegation[_user] = finalDelegatee;
             emit DelegationUpdated(_user, finalDelegatee);
         } else if (userDelegation[_user] == address(0)) {
@@ -200,11 +199,14 @@ contract ResurgeStakingPool is
         }
 
         // Add new votes to the final delegatee (same-block push replaces prior push correctly).
-        _stakedVoteCheckpoints[finalDelegatee].push(
-            uint48(block.number),
+        _pushTraceCheckpoint(
+            _stakedVoteCheckpoints[finalDelegatee],
             _stakedVoteCheckpoints[finalDelegatee].latest() + uint208(_amount)
         );
-        _totalStakedCheckpoints.push(uint48(block.number), uint208(totalStakedSupply));
+        _pushTotalStakedCheckpoint(uint208(totalStakedSupply));
+
+        if (!resurgeToken.transferFrom(msg.sender, address(this), _amount))
+            revert ResurgeStaking_TransferFailed();
 
         emit Staked(_user, _amount, _delegatee);
     }
@@ -225,11 +227,11 @@ contract ResurgeStakingPool is
         // Remove vote weight from current delegatee.
         address delegatee = userDelegation[msg.sender];
         if (delegatee == address(0)) delegatee = msg.sender;
-        _stakedVoteCheckpoints[delegatee].push(
-            uint48(block.number),
+        _pushTraceCheckpoint(
+            _stakedVoteCheckpoints[delegatee],
             _stakedVoteCheckpoints[delegatee].latest() - uint208(_amount)
         );
-        _totalStakedCheckpoints.push(uint48(block.number), uint208(totalStakedSupply));
+        _pushTotalStakedCheckpoint(uint208(totalStakedSupply));
 
         uint256 returnAmount = _amount - penalty;
         if (!resurgeToken.transfer(msg.sender, returnAmount))
@@ -258,9 +260,6 @@ contract ResurgeStakingPool is
         uint256 rewards = (userRewards[msg.sender] * boost) / 10000;
         if (rewards > 0) {
             userRewards[msg.sender] = 0;
-            bool success = RewardDistributor(rewardDistributor).mintAndDistribute(address(this), rewards);
-            if (!success) revert ResurgeStaking_RewardMintingFailed();
-
             userStakedAmount[msg.sender] += rewards;
             totalStakedSupply += rewards;
             // Reset lock timer: compounded tokens must serve the full lock period.
@@ -268,11 +267,14 @@ contract ResurgeStakingPool is
 
             address delegatee = userDelegation[msg.sender];
             if (delegatee == address(0)) delegatee = msg.sender;
-            _stakedVoteCheckpoints[delegatee].push(
-                uint48(block.number),
+            _pushTraceCheckpoint(
+                _stakedVoteCheckpoints[delegatee],
                 _stakedVoteCheckpoints[delegatee].latest() + uint208(rewards)
             );
-            _totalStakedCheckpoints.push(uint48(block.number), uint208(totalStakedSupply));
+            _pushTotalStakedCheckpoint(uint208(totalStakedSupply));
+
+            bool success = RewardDistributor(rewardDistributor).mintAndDistribute(address(this), rewards);
+            if (!success) revert ResurgeStaking_RewardMintingFailed();
 
             emit RewardsClaimed(msg.sender, rewards);
             emit Staked(msg.sender, rewards, address(0));
@@ -296,16 +298,32 @@ contract ResurgeStakingPool is
         userDelegation[account] = delegatee;
         uint208 weight = uint208(userStakedAmount[account]);
         if (weight > 0) {
-            _stakedVoteCheckpoints[from].push(
-                uint48(block.number),
+            _pushTraceCheckpoint(
+                _stakedVoteCheckpoints[from],
                 _stakedVoteCheckpoints[from].latest() - weight
             );
-            _stakedVoteCheckpoints[delegatee].push(
-                uint48(block.number),
+            _pushTraceCheckpoint(
+                _stakedVoteCheckpoints[delegatee],
                 _stakedVoteCheckpoints[delegatee].latest() + weight
             );
         }
         emit DelegationUpdated(account, delegatee);
+    }
+
+    function _pushTraceCheckpoint(Checkpoints.Trace208 storage trace, uint208 value) internal {
+        (uint208 previousValue, uint208 checkpointValue) = trace.push(uint48(block.number), value);
+        if (checkpointValue != value) {
+            revert ResurgeStaking_CheckpointWriteFailed();
+        }
+        if (previousValue > checkpointValue || previousValue < checkpointValue) return;
+    }
+
+    function _pushTotalStakedCheckpoint(uint208 value) internal {
+        (uint208 previousValue, uint208 checkpointValue) = _totalStakedCheckpoints.push(uint48(block.number), value);
+        if (checkpointValue != value) {
+            revert ResurgeStaking_CheckpointWriteFailed();
+        }
+        if (previousValue > checkpointValue || previousValue < checkpointValue) return;
     }
 
     /// @notice Current staked voting power held by an account (as delegatee).

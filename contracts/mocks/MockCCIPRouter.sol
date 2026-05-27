@@ -11,6 +11,7 @@ interface ICCIPReceiver {
 /// @dev Emits MessageSent on ccipSend; allows tests to manually deliver messages to a receiver
 contract MockCCIPRouter {
     uint256 private _msgCounter;
+    address public immutable owner;
 
     event MessageSent(
         bytes32 indexed messageId,
@@ -22,6 +23,15 @@ contract MockCCIPRouter {
     );
 
     mapping(uint64 => bool) public supportedChains;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "MockCCIPRouter_Unauthorized");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
 
     function setSupportedChain(uint64 chainSelector, bool supported) external {
         supportedChains[chainSelector] = supported;
@@ -69,5 +79,10 @@ contract MockCCIPRouter {
             destTokenAmounts: new Client.EVMTokenAmount[](0)
         });
         ICCIPReceiver(receiver).ccipReceive(message);
+    }
+
+    function withdraw(uint256 amount) external onlyOwner {
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "MockCCIPRouter_WithdrawFailed");
     }
 }

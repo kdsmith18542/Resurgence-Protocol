@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "./utils/ReentrancyGuardUpgradeable.sol";
 import "./ResurgeToken.sol";
 
 interface IPriceOracle {
@@ -23,7 +24,7 @@ interface ISP1DormancyVerifier {
         bytes calldata proof,
         bytes calldata publicInputs,
         bytes32 chainId,
-        string calldata address,
+        string calldata walletAddress,
         uint64 dormantSinceBlock,
         uint64 currentBlock,
         uint64 thresholdBlocks
@@ -33,7 +34,7 @@ interface ISP1DormancyVerifier {
 /// @title RewardDistributor - Manages the minting and distribution of RESURGE rewards
 /// @notice This contract is authorized to mint RESURGE tokens and is called by staking pools
 /// @dev Implements AccessControl for management and Pausable for emergencies. UUPS Upgradeable.
-contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
     bytes32 public constant ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
@@ -53,8 +54,10 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     error RewardDistributor_ProofAlreadyProcessed();
     error RewardDistributor_RelayAlreadyProcessed();
     error RewardDistributor_InvalidProofData();
+    error RewardDistributor_InvalidSourceChain();
     error RewardDistributor_SP1VerifierNotSet();
     error RewardDistributor_SP1ProofVerificationFailed();
+    error RewardDistributor_LegacyPathDeactivated();
 
     ResurgeToken public resurgenceToken;
     uint256 public totalResurgeMinted;
@@ -80,7 +83,8 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     mapping(bytes32 => bool) public processedSP1Proofs;
 
     // BaaLS relay bridge path (Phase 13)
-    // Key: keccak256(abi.encodePacked(crossChainSender, nonce)) — unique per spoke sender + nonce
+    // Key: keccak256(abi.encodePacked(sourceChainId, crossChainSender, nonce))
+    // — unique across spokes even if sender addresses overlap across chains.
     mapping(bytes32 => bool) public processedRelays;
 
     event TokensMintedAndDistributed(address indexed to, uint256 amount);
@@ -98,7 +102,7 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     event SP1DormancyProofProcessed(
         bytes32 indexed proofHash,
         bytes32 indexed chainId,
-        string indexed address,
+        string indexed walletAddress,
         uint64 dormantSinceBlock,
         uint64 currentBlock,
         uint64 thresholdBlocks,
@@ -131,9 +135,11 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         
         __AccessControl_init();
         __Pausable_init();
+        __ReentrancyGuard_init();
 
         resurgenceToken = ResurgeToken(_resurgenceTokenAddress);
         maxMintSupply = _initialMaxMintSupply;
+        emit MaxMintSupplyUpdated(_initialMaxMintSupply);
         
         _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
         _grantRole(TIMELOCK_ROLE, _timelock);
@@ -165,7 +171,7 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     /// @param _to User address to receive rewards
     /// @param _amount Amount of RESURGE to mint
     /// @return Success boolean
-    function mintAndDistribute(address _to, uint256 _amount) public whenNotPaused returns (bool) {
+    function mintAndDistribute(address _to, uint256 _amount) public whenNotPaused nonReentrant returns (bool) {
         if (!authorizedStakingPools[msg.sender]) revert RewardDistributor_UnauthorizedPool();
         
         uint256 newTotalMinted = totalResurgeMinted + _amount;
@@ -179,21 +185,28 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
 
     /// @notice Mints RESURGE for a user whose reward was relayed via BaaLS EVMSubmitter
     /// @dev Only callable by RELAY_MINTER_ROLE holders (BaaLS EVMSubmitter address).
-    ///      Replay protection: keccak256(crossChainSender, nonce) must not already be processed.
+    ///      Replay protection: keccak256(sourceChainId, crossChainSender, nonce)
+    ///      must not already be processed.
     ///      The crossChainSender is the spoke-chain contract address that emitted BridgeClaimRequested.
-    ///      Combined with the per-sender nonce, this is globally unique across all spokes.
+    ///      Combined with source chain + nonce, this is globally unique across all spokes.
     /// @param user Recipient on the hub chain
     /// @param amount RESURGE amount to mint
+    /// @param sourceChainId EVM chain ID of the spoke where the relay event originated
     /// @param crossChainSender Address of the CrossChainSender on the spoke chain that emitted the event
     /// @param nonce Relay nonce from the BridgeClaimRequested event
-    function mintForRelay(address user, uint256 amount, address crossChainSender, uint256 nonce)
-        external
-        whenNotPaused
+    function mintForRelay(
+        address user,
+        uint256 amount,
+        uint256 sourceChainId,
+        address crossChainSender,
+        uint256 nonce
+    ) external whenNotPaused nonReentrant
     {
         if (!hasRole(RELAY_MINTER_ROLE, msg.sender)) revert RewardDistributor_UnauthorizedRelayer();
         if (user == address(0) || crossChainSender == address(0)) revert RewardDistributor_InvalidAddress();
+        if (sourceChainId == 0) revert RewardDistributor_InvalidSourceChain();
 
-        bytes32 relayKey = keccak256(abi.encodePacked(crossChainSender, nonce));
+        bytes32 relayKey = keccak256(abi.encodePacked(sourceChainId, crossChainSender, nonce));
         if (processedRelays[relayKey]) revert RewardDistributor_RelayAlreadyProcessed();
         processedRelays[relayKey] = true;
 
@@ -225,7 +238,7 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     /// @dev Only callable by an authorized CrossChainReceiver on the hub
     /// @param user The recipient address (user on the hub chain)
     /// @param amount RESURGE amount to mint
-    function mintForBridge(address user, uint256 amount) external whenNotPaused {
+    function mintForBridge(address user, uint256 amount) external whenNotPaused nonReentrant {
         if (!authorizedBridges[msg.sender]) revert RewardDistributor_UnauthorizedBridge();
         uint256 newTotalMinted = totalResurgeMinted + amount;
         if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
@@ -294,11 +307,12 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         try priceOracle.latestRoundData() returns (
             uint80 roundId,
             int256 answer,
-            uint256,
+            uint256 startedAt,
             uint256 updatedAt,
             uint80 answeredInRound
         ) {
             if (answer <= 0) return (0, false);
+            if (startedAt > block.timestamp) return (0, false);
             if (answeredInRound < roundId) return (0, false);
             if (updatedAt == 0 || block.timestamp > updatedAt + oracleStaleThreshold) {
                 // Stale data, try fallback
@@ -365,39 +379,8 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         uint256 thresholdBlocks,
         bytes32 signerPubkey,
         bytes calldata signature
-    ) public onlyRole(DORMANCY_ORACLE_ROLE) whenNotPaused returns (bytes32 proofHash) {
-        if (dormantWallet == address(0)) revert RewardDistributor_InvalidAddress();
-        if (nonEvmRewardAmount == 0) revert RewardDistributor_InvalidProofData();
-
-        proofHash = keccak256(
-            abi.encodePacked(
-                chainId,
-                dormantWallet,
-                dormantSinceBlock,
-                currentBlock,
-                thresholdBlocks
-            )
-        );
-
-        if (processedProofs[proofHash]) revert RewardDistributor_ProofAlreadyProcessed();
-        processedProofs[proofHash] = true;
-
-        uint256 newTotalMinted = totalResurgeMinted + nonEvmRewardAmount;
-        if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
-        totalResurgeMinted = newTotalMinted;
-
-        resurgenceToken.mint(dormantWallet, nonEvmRewardAmount);
-
-        emit DormancyProofProcessed(
-            proofHash,
-            chainId,
-            dormantWallet,
-            dormantSinceBlock,
-            currentBlock,
-            nonEvmRewardAmount
-        );
-
-        emit TokensMintedAndDistributed(dormantWallet, nonEvmRewardAmount);
+    ) public view onlyRole(DORMANCY_ORACLE_ROLE) returns (bytes32) {
+        revert RewardDistributor_LegacyPathDeactivated();
     }
 
     /// @notice Verifies SP1 Groth16 dormancy proof and mints rewards (Phase 7)
@@ -405,7 +388,7 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
     /// @param zkProof Hex-encoded SP1 Groth16 proof bytes
     /// @param publicInputs Hex-encoded public inputs/commitments from the proof
     /// @param chainId The blockchain chain ID (e.g., "bitcoin", "dogecoin")
-    /// @param address The watched address that is claimed dormant
+    /// @param walletAddress The watched address that is claimed dormant
     /// @param dormantSinceBlock The block height when dormancy window started
     /// @param currentBlock The current block height
     /// @param thresholdBlocks The minimum dormancy window required
@@ -415,54 +398,36 @@ contract RewardDistributor is Initializable, AccessControlUpgradeable, PausableU
         bytes calldata zkProof,
         bytes calldata publicInputs,
         bytes32 chainId,
-        string calldata address,
+        string calldata walletAddress,
         uint64 dormantSinceBlock,
         uint64 currentBlock,
         uint64 thresholdBlocks,
         address evmWallet
-    ) public onlyRole(SP1_VERIFIER_ROLE) whenNotPaused returns (bytes32 proofHash) {
+    ) external whenNotPaused nonReentrant returns (bytes32) {
         if (address(sp1DormancyVerifier) == address(0)) revert RewardDistributor_SP1VerifierNotSet();
         if (evmWallet == address(0)) revert RewardDistributor_InvalidAddress();
-        if (sp1RewardAmount == 0) revert RewardDistributor_InvalidProofData();
+        if (zkProof.length == 0 || publicInputs.length == 0) revert RewardDistributor_InvalidProofData();
+        if (chainId == bytes32(0)) revert RewardDistributor_InvalidSourceChain();
 
-        // Verify the SP1 proof through the SP1DormancyVerifier contract
-        try sp1DormancyVerifier.verifyDormancyProof(
-            zkProof,
-            publicInputs,
-            chainId,
-            address,
-            dormantSinceBlock,
-            currentBlock,
-            thresholdBlocks
-        ) returns (bytes32 returnedProofHash) {
-            proofHash = returnedProofHash;
-        } catch {
-            revert RewardDistributor_SP1ProofVerificationFailed();
-        }
+        bytes32 proofHash = sp1DormancyVerifier.verifyDormancyProof(
+            zkProof, publicInputs, chainId, walletAddress,
+            dormantSinceBlock, currentBlock, thresholdBlocks
+        );
 
-        // Prevent double-spending of the same proof
+        if (proofHash == bytes32(0)) revert RewardDistributor_SP1ProofVerificationFailed();
         if (processedSP1Proofs[proofHash]) revert RewardDistributor_ProofAlreadyProcessed();
         processedSP1Proofs[proofHash] = true;
 
-        // Mint tokens
         uint256 newTotalMinted = totalResurgeMinted + sp1RewardAmount;
         if (newTotalMinted > maxMintSupply) revert RewardDistributor_ExceedsMaxSupply();
         totalResurgeMinted = newTotalMinted;
 
         resurgenceToken.mint(evmWallet, sp1RewardAmount);
-
-        // Emit events
-        emit SP1DormancyProofProcessed(
-            proofHash,
-            chainId,
-            address,
-            dormantSinceBlock,
-            currentBlock,
-            thresholdBlocks,
-            sp1RewardAmount
-        );
-
         emit TokensMintedAndDistributed(evmWallet, sp1RewardAmount);
+        emit SP1DormancyProofProcessed(
+            proofHash, chainId, walletAddress,
+            dormantSinceBlock, currentBlock, thresholdBlocks, sp1RewardAmount
+        );
 
         return proofHash;
     }

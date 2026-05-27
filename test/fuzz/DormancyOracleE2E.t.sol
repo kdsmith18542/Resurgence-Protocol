@@ -58,115 +58,28 @@ contract DormancyOracleE2ETest is Test {
         vm.stopPrank();
     }
 
-    /// @notice Full flow: register wallet → oracle submits proof → RESURGE minted to staker
-    function testFullDormancyFlow() public {
-        // Step 1: User registers their dormant BTC wallet
+    /// @notice Verify legacy submitDormancyProof reverts with LegacyPathDeactivated
+    function testLegacyDormancyFlowDeactivated() public {
         vm.prank(staker);
         stakingPool.registerWallet(BTC_CHAIN, BTC_WALLET);
 
-        assertEq(stakingPool.getStaker(BTC_CHAIN, BTC_WALLET), staker);
-
-        // Step 2: Oracle verifies the staker mapping
-        address resolvedStaker = stakingPool.getStaker(BTC_CHAIN, BTC_WALLET);
-        assertEq(resolvedStaker, staker);
-
-        // Step 3: Oracle submits dormancy proof to RewardDistributor
-        uint256 balanceBefore = token.balanceOf(resolvedStaker);
-
         vm.prank(oracle);
-        bytes32 proofHash = distributor.submitDormancyProof(
+        vm.expectRevert(RewardDistributor.RewardDistributor_LegacyPathDeactivated.selector);
+        distributor.submitDormancyProof(
             BTC_CHAIN,
-            resolvedStaker,
+            staker,
             DORMANT_SINCE,
             CURRENT_BLOCK,
             THRESHOLD,
             CHRONO_PUBKEY,
             hex"deadbeef"
         );
-
-        // Step 4: Verify RESURGE minted to staker
-        assertTrue(proofHash != bytes32(0));
-        assertEq(token.balanceOf(resolvedStaker), balanceBefore + REWARD_AMOUNT);
-        assertTrue(distributor.processedProofs(proofHash));
-    }
-
-    /// @notice Same proof cannot be replayed
-    function testProofReplayProtection() public {
-        vm.prank(staker);
-        stakingPool.registerWallet(BTC_CHAIN, BTC_WALLET);
-
-        vm.startPrank(oracle);
-        distributor.submitDormancyProof(
-            BTC_CHAIN, staker, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        vm.expectRevert(RewardDistributor.RewardDistributor_ProofAlreadyProcessed.selector);
-        distributor.submitDormancyProof(
-            BTC_CHAIN, staker, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-        vm.stopPrank();
-    }
-
-    /// @notice Multiple stakers with different wallets receive independent rewards
-    function testMultipleStakersReceiveRewards() public {
-        string memory wallet2 = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy";
-
-        vm.prank(staker);
-        stakingPool.registerWallet(BTC_CHAIN, BTC_WALLET);
-        vm.prank(otherStaker);
-        stakingPool.registerWallet(BTC_CHAIN, wallet2);
-
-        // Submit for staker
-        vm.prank(oracle);
-        distributor.submitDormancyProof(
-            BTC_CHAIN, staker, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        // Submit for otherStaker with different dormant_since (unique proof)
-        vm.prank(oracle);
-        distributor.submitDormancyProof(
-            BTC_CHAIN, otherStaker, DORMANT_SINCE + 100,
-            CURRENT_BLOCK + 100, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        assertEq(token.balanceOf(staker), REWARD_AMOUNT);
-        assertEq(token.balanceOf(otherStaker), REWARD_AMOUNT);
     }
 
     /// @notice Unauthorized oracle cannot submit proofs
     function testUnauthorizedOracleCannotSubmit() public {
         vm.prank(address(0x9999));
         vm.expectRevert();
-        distributor.submitDormancyProof(
-            BTC_CHAIN, staker, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-    }
-
-    /// @notice Cannot submit for unregistered wallet (still mints, just to the address passed)
-    function testMintToAnyAddressIfOracleAuthorized() public {
-        // NonEvmStakingPool registration is optional — oracle decides who to mint to
-        uint256 balanceBefore = token.balanceOf(staker);
-
-        vm.prank(oracle);
-        distributor.submitDormancyProof(
-            BTC_CHAIN, staker, DORMANT_SINCE,
-            CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
-        );
-
-        assertEq(token.balanceOf(staker), balanceBefore + REWARD_AMOUNT);
-    }
-
-    /// @notice Supply cap is enforced
-    function testSupplyCapEnforced() public {
-        vm.prank(timelock);
-        distributor.setMaxMintSupply(REWARD_AMOUNT - 1);
-
-        vm.prank(oracle);
-        vm.expectRevert(RewardDistributor.RewardDistributor_ExceedsMaxSupply.selector);
         distributor.submitDormancyProof(
             BTC_CHAIN, staker, DORMANT_SINCE,
             CURRENT_BLOCK, THRESHOLD, CHRONO_PUBKEY, ""
