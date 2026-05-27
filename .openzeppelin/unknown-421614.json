@@ -85,6 +85,26 @@
       "address": "0x169CCD5dF5b4C37B40A4ad2e2D18ADC19BED190B",
       "txHash": "0xe0f66c9e49758be3df43b64c335835f0dee745ec071d2bdb4da7e16a8170980b",
       "kind": "uups"
+    },
+    {
+      "address": "0x735C9551D0A164C444c9E5abb025325C534D9cf3",
+      "txHash": "0x6e2bcf47fd132ef6632af7c6b950a350ea341d4380bef1e86f47e5804f19af09",
+      "kind": "uups"
+    },
+    {
+      "address": "0xADf44A0eB6cf9FA60bEF36e92C2D909b1455c486",
+      "txHash": "0xe0ce30d3cf7e5d2d64bd78c29b457bf7e067e1334110eebbeca4f152436dacc1",
+      "kind": "uups"
+    },
+    {
+      "address": "0xa7FacCdA878b7C25e445f239d44411E33dDf2D3F",
+      "txHash": "0xfffdeac73d3856e98fd404264dd13c7b770eea3b3646b47db12a9e5afbe69dda",
+      "kind": "uups"
+    },
+    {
+      "address": "0x7fC5c1266C77BF1Dfe5E7561805b7323C3CbD25F",
+      "txHash": "0xd41203c3e4d9942446294572ced4bf44130fd194282c1dc5b48ea7a6c7269d39",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -2159,6 +2179,715 @@
               "contract": "AccessControlUpgradeable",
               "label": "_roles",
               "type": "t_mapping(t_bytes32,t_struct(RoleData)196_storage)",
+              "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "d3992db7e0dc7d17ebe1def898789c10acc00d6c8228ff5006d9239103eb320e": {
+      "address": "0x731BF07BF2aC792A3A5bf78Dd165dB6B7c265029",
+      "txHash": "0xd57e93fd12ef5b2ecd709b69214b932f8ad81e5c933284feb518f492ea130548",
+      "layout": {
+        "solcVersion": "0.8.27",
+        "storage": [
+          {
+            "label": "rewardController",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:79"
+          },
+          {
+            "label": "defaultPolicy",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_struct(ClaimPolicy)2983_storage",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:80"
+          },
+          {
+            "label": "consumedClaims",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_bytes32,t_bool)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:82"
+          },
+          {
+            "label": "consumedProofs",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_bytes32,t_bool)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:83"
+          },
+          {
+            "label": "claimStatus",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_bytes32,t_enum(ClaimStatus)2919)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:84"
+          },
+          {
+            "label": "campaigns",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_uint256,t_struct(Campaign)2956_storage)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:85"
+          },
+          {
+            "label": "claimPolicies",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_bytes32,t_struct(ClaimPolicy)2983_storage)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:86"
+          },
+          {
+            "label": "claims",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_bytes32,t_struct(LegacyClaim)2943_storage)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:87"
+          },
+          {
+            "label": "vaultAddresses",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_bytes32,t_string_storage)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:89"
+          },
+          {
+            "label": "burnAddresses",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_mapping(t_bytes32,t_string_storage)",
+            "contract": "LegacyClaimRegistry",
+            "src": "contracts/LegacyClaimRegistry.sol:90"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)24_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(AccessControlStorage)34_storage": {
+            "label": "struct AccessControlUpgradeable.AccessControlStorage",
+            "members": [
+              {
+                "label": "_roles",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)432_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)187_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)24_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "hasRole",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_enum(ClaimStatus)2919": {
+            "label": "enum LegacyClaimRegistry.ClaimStatus",
+            "members": [
+              "None",
+              "Pending",
+              "Verified",
+              "Minted",
+              "Rejected",
+              "Quarantined",
+              "Expired"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_enum(LegacyClaimType)2911": {
+            "label": "enum LegacyClaimRegistry.LegacyClaimType",
+            "members": [
+              "ERC20Stake",
+              "TransferToVault",
+              "BurnProof",
+              "LockProof",
+              "SignatureDormancyProof",
+              "PublicRpcEvidenceProof",
+              "ExplorerEvidenceProof",
+              "MultiSourceEvidenceProof",
+              "ZkDormancyProof",
+              "ManualReview"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_bytes32,t_bool)": {
+            "label": "mapping(bytes32 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_enum(ClaimStatus)2919)": {
+            "label": "mapping(bytes32 => enum LegacyClaimRegistry.ClaimStatus)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_string_storage)": {
+            "label": "mapping(bytes32 => string)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(ClaimPolicy)2983_storage)": {
+            "label": "mapping(bytes32 => struct LegacyClaimRegistry.ClaimPolicy)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(LegacyClaim)2943_storage)": {
+            "label": "mapping(bytes32 => struct LegacyClaimRegistry.LegacyClaim)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Campaign)2956_storage)": {
+            "label": "mapping(uint256 => struct LegacyClaimRegistry.Campaign)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Campaign)2956_storage": {
+            "label": "struct LegacyClaimRegistry.Campaign",
+            "members": [
+              {
+                "label": "id",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "active",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "startTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "endTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "maxTotalRewards",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "rewardsMinted",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              }
+            ],
+            "numberOfBytes": "192"
+          },
+          "t_struct(ClaimPolicy)2983_storage": {
+            "label": "struct LegacyClaimRegistry.ClaimPolicy",
+            "members": [
+              {
+                "label": "enabled",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "transferToVaultEnabled",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "0"
+              },
+              {
+                "label": "burnProofEnabled",
+                "type": "t_bool",
+                "offset": 2,
+                "slot": "0"
+              },
+              {
+                "label": "lockProofEnabled",
+                "type": "t_bool",
+                "offset": 3,
+                "slot": "0"
+              },
+              {
+                "label": "signatureProofEnabled",
+                "type": "t_bool",
+                "offset": 4,
+                "slot": "0"
+              },
+              {
+                "label": "rpcEvidenceEnabled",
+                "type": "t_bool",
+                "offset": 5,
+                "slot": "0"
+              },
+              {
+                "label": "explorerEvidenceEnabled",
+                "type": "t_bool",
+                "offset": 6,
+                "slot": "0"
+              },
+              {
+                "label": "zkProofEnabled",
+                "type": "t_bool",
+                "offset": 7,
+                "slot": "0"
+              },
+              {
+                "label": "minDormancySeconds",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "minHistoricalBalance",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "maxRewardPerClaim",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "maxRewardPerEpoch",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "minConfidenceTier",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "5"
+              }
+            ],
+            "numberOfBytes": "192"
+          },
+          "t_struct(LegacyClaim)2943_storage": {
+            "label": "struct LegacyClaimRegistry.LegacyClaim",
+            "members": [
+              {
+                "label": "sourceChainId",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "sourceAddressHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "evmWallet",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "proofHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "sourceTxHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "claimType",
+                "type": "t_enum(LegacyClaimType)2911",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "confidenceTier",
+                "type": "t_uint8",
+                "offset": 1,
+                "slot": "5"
+              },
+              {
+                "label": "lastSeenTimestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "dormancySeconds",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "rewardAmount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "8"
+              },
+              {
+                "label": "campaignId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "9"
+              }
+            ],
+            "numberOfBytes": "320"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.AccessControl": [
+            {
+              "contract": "AccessControlUpgradeable",
+              "label": "_roles",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+              "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "16f69e4966303c4b81c30393fc9c9bafedf8c8677a9491f891f872a377472b08": {
+      "address": "0xb9f50f2D1f0926250C3942e2BAEfFf6913c426a1",
+      "txHash": "0xb391363ea7014f04dfce62836dbf868dfbf45c64736dc1f35008f2441d27c2b8",
+      "layout": {
+        "solcVersion": "0.8.27",
+        "storage": [
+          {
+            "label": "registry",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:33"
+          },
+          {
+            "label": "distributor",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IRewardDistributor)2197",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:34"
+          },
+          {
+            "label": "epochStart",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:36"
+          },
+          {
+            "label": "epochDuration",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_uint256",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:37"
+          },
+          {
+            "label": "currentEpochIndex",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint256",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:38"
+          },
+          {
+            "label": "maxRewardPerWalletPerEpoch",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_uint256",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:40"
+          },
+          {
+            "label": "maxRewardPerChainPerEpoch",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:41"
+          },
+          {
+            "label": "walletEpochMinted",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:44"
+          },
+          {
+            "label": "chainEpochMinted",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_uint256,t_mapping(t_bytes32,t_uint256))",
+            "contract": "DormancyRewardController",
+            "src": "contracts/DormancyRewardController.sol:46"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)24_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(AccessControlStorage)34_storage": {
+            "label": "struct AccessControlUpgradeable.AccessControlStorage",
+            "members": [
+              {
+                "label": "_roles",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)432_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)187_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)24_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "hasRole",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_contract(IRewardDistributor)2197": {
+            "label": "contract IRewardDistributor",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_uint256)": {
+            "label": "mapping(bytes32 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(uint256 => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_bytes32,t_uint256))": {
+            "label": "mapping(uint256 => mapping(bytes32 => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.AccessControl": [
+            {
+              "contract": "AccessControlUpgradeable",
+              "label": "_roles",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
               "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
               "offset": 0,
               "slot": "0"

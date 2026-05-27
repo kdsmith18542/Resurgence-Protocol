@@ -190,7 +190,7 @@ export default function NonEvmClaimsPage() {
                     return (
                       <tr key={claim.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
                         <td className="px-4 py-3">
-                          <Link href={`/resurgence/legacy-claims/${claim.id}`} className="text-blue-400 hover:underline font-mono text-xs">
+                          <Link href={`/resurgence/legacy-claims/detail/?id=${claim.id}`} className="text-blue-400 hover:underline font-mono text-xs">
                             {claim.id.slice(0, 10)}...
                           </Link>
                         </td>

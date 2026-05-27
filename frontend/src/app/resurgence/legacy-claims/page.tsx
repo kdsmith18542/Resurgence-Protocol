@@ -240,7 +240,7 @@ export default function LegacyClaimsPage() {
                   <td className="px-6 py-4 text-xs">{claim.submittedAt}</td>
                   <td className="px-6 py-4">
                     <Link
-                      href={`/resurgence/legacy-claims/${claim.id}`}
+                      href={`/resurgence/legacy-claims/detail/?id=${claim.id}`}
                       className="text-blue-400 hover:text-blue-300 text-xs"
                     >
                       View →

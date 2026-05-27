@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 const CLAIM_TYPE_LABELS: Record<number, string> = {
   0: 'ERC-20 Stake',
@@ -47,9 +47,9 @@ const TIMELINE_STEPS = [
   { key: 'minted', label: 'RESURGE Minted', icon: '💰' },
 ];
 
-export default function LegacyClaimDetailPage() {
-  const params = useParams();
-  const claimId = params?.claimId as string;
+function LegacyClaimDetailContent() {
+  const searchParams = useSearchParams();
+  const claimId = searchParams.get('id') || '';
   const [loading, setLoading] = useState(true);
   const [timelineStep, setTimelineStep] = useState(6);
 
@@ -175,5 +175,18 @@ export default function LegacyClaimDetailPage() {
         </a>
       </div>
     </div>
+  );
+}
+
+export default function LegacyClaimDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="animate-pulse space-y-6 py-10 max-w-4xl mx-auto text-left">
+        <div className="h-10 bg-gray-800 rounded-xl w-64"></div>
+        <div className="h-48 bg-gray-800 rounded-xl"></div>
+      </div>
+    }>
+      <LegacyClaimDetailContent />
+    </Suspense>
   );
 }

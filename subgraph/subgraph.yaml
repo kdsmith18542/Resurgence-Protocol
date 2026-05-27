@@ -203,7 +203,7 @@ dataSources:
     network: arbitrum-sepolia
     source:
       abi: LegacyClaimRegistry
-      address: "0x0000000000000000000000000000000000000000"
+      address: "0xa7FacCdA878b7C25e445f239d44411E33dDf2D3F"
       startBlock: 270500000
     mapping:
       kind: ethereum/events

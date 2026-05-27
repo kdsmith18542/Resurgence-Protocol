@@ -20,18 +20,32 @@ async function main() {
   const currentBlock = await ethers.provider.getBlockNumber();
   console.log(`Current block height: ${currentBlock}`);
 
-  // Query events from RewardDistributor
+  // Query events from RewardDistributor in chunks of 50,000 blocks
   // 1. DormancyProofProcessed(bytes32 indexed proofHash, ...)
   // 2. SP1DormancyProofProcessed(bytes32 indexed proofHash, ...)
   console.log("Querying historical processed proof events from RewardDistributor...");
 
+  const START_BLOCK = 270600000; // Deployment was around 270686351
+  const CHUNK_SIZE = 50000;
+
+  async function getEventsInChunks(filter) {
+    let allEvents = [];
+    for (let from = START_BLOCK; from <= currentBlock; from += CHUNK_SIZE) {
+      const to = Math.min(from + CHUNK_SIZE - 1, currentBlock);
+      console.log(`  Querying blocks ${from} to ${to}...`);
+      const events = await RewardDistributor.queryFilter(filter, from, to);
+      allEvents = allEvents.concat(events);
+    }
+    return allEvents;
+  }
+
   const filterDormancy = RewardDistributor.filters.DormancyProofProcessed();
-  const eventsDormancy = await RewardDistributor.queryFilter(filterDormancy, 0, currentBlock);
-  console.log(`Found ${eventsDormancy.length} DormancyProofProcessed events.`);
+  const eventsDormancy = await getEventsInChunks(filterDormancy);
+  console.log(`Found ${eventsDormancy.length} total DormancyProofProcessed events.`);
 
   const filterSp1 = RewardDistributor.filters.SP1DormancyProofProcessed();
-  const eventsSp1 = await RewardDistributor.queryFilter(filterSp1, 0, currentBlock);
-  console.log(`Found ${eventsSp1.length} SP1DormancyProofProcessed events.`);
+  const eventsSp1 = await getEventsInChunks(filterSp1);
+  console.log(`Found ${eventsSp1.length} total SP1DormancyProofProcessed events.`);
 
   // Collect unique proof hashes
   const proofHashesSet = new Set();

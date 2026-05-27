@@ -43,7 +43,7 @@ async function main() {
     const targets   = [REWARD_DISTRIBUTOR];
     const values    = [0n];
     const calldatas = [calldata];
-    const description = `Upgrade RewardDistributor to Phase 13 impl (mintForRelay) at ${implAddr}`;
+    const description = `Upgrade RewardDistributor to Phase 15 (LACE) impl at ${implAddr}`;
     const descHash  = hre.ethers.id(description);
 
     // 1c. Check voting power
@@ -83,7 +83,7 @@ async function main() {
     const targets   = [REWARD_DISTRIBUTOR];
     const values    = [0n];
     const calldatas = [calldata];
-    const description = `Upgrade RewardDistributor to Phase 13 impl (mintForRelay) at ${newImplAddr}`;
+    const description = `Upgrade RewardDistributor to Phase 15 (LACE) impl at ${newImplAddr}`;
     const descHash  = hre.ethers.id(description);
 
     const s = Number(await governance.state(proposalId));

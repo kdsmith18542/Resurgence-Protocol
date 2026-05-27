@@ -225,19 +225,17 @@ type LaceBurnAddress @entity {
 }
 
 type TransferClaim @entity {
-  id: Bytes! # txHash
-  chainId: Bytes!
-  sourceAddress: String!
-  destinationAddress: String!
-  txHash: Bytes!
-  amount: BigInt!
-  blockHeight: BigInt!
-  transferType: String! # "vault" or "burn"
-  detectedAt: BigInt!
-  claimSubmitted: Boolean!
-  evmWallet: User
-  linkedLegacyClaim: LegacyClaim
-  createdAt: BigInt!
+  id: Bytes! # claimId
+  legacyClaim: LegacyClaim!
+  claimType: String!
+  sourceChainId: Bytes!
+  evmWallet: User!
+  rewardAmount: BigInt!
+  status: String!
+  submittedAt: BigInt!
+  submittedAtBlock: BigInt!
+  submittedAtTx: Bytes!
+  sourceTxHash: Bytes
 }
 
 type ConfidenceMultiplier @entity {
